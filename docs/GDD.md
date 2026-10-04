@@ -1,4 +1,4 @@
-# Game Design Document — *Ship It!* (working title)
+# Game Design Document — *Git Rich*
 
 An incremental game about growing a software company from a single developer
 in a bedroom to a global tech giant.
@@ -8,10 +8,12 @@ in a bedroom to a global tech giant.
   a terminal UI, or another UI framework without a rewrite.
 - **Language:** English only.
 - **Visual style:** Modern card-based UI.
-- **Scope:** Full: 3 resources, upgrades, achievements, offline progress, random
+- **Scope:** Full: 3 resources, staff and products, contracts, a research tree,
+  office and talent management, upgrades, achievements, offline progress, random
   events, and two prestige layers.
+- **UI prototype:** https://claude.ai/artifact/DTgxc51UKKGSnmM1pwu5TS (sample numbers, layout reference only).
 
-> Status: **Draft v0.1, for review.** All numbers are first-pass values and will
+> Status: **Draft v0.2, for review.** All numbers are first-pass values and will
 > be tuned during the balancing milestone.
 
 ---
@@ -113,7 +115,91 @@ at 10, 25, 50, 100 and 200 owned. Cost ≈ `baseCost × 10 × milestone`.
 
 ---
 
-## 5. Achievements
+## 5. Contracts
+
+Clients offer fixed jobs. They give a big one-time reward and are the main
+source of Reputation in the mid game.
+
+- A contract has: **client**, **LoC required**, **deadline**, **reward ($ + Rep)**,
+  and sometimes a **required technology** (from Research).
+- The player sets **how much of the team works on contracts** (slider, 0–100%).
+  That share of LoC/s goes into the contract instead of the LoC pool.
+- **Slots:** 1 at start, more from Research and Office upgrades (max 5).
+- **On time:** full reward. **Late:** contract fails, −Rep. **Early (< 50% of time):** +25% bonus.
+- New offers arrive every few minutes. Offers scale with current LoC/s, so they
+  stay relevant all game.
+- Client types: Small business → Startup → Healthcare → Government → Enterprise.
+  Bigger clients pay more but need technologies and more Rep.
+
+| Example contract | LoC | Time | Reward | Needs |
+|---|---|---|---|---|
+| Bakery ordering app | 4K | 6 min | $2.5K, +15 Rep | — |
+| Hospital booking portal | 18K | 15 min | $14K, +60 Rep | REST APIs |
+| Bank fraud detector | 250K | 45 min | $300K, +600 Rep | Machine Learning |
+
+---
+
+## 6. Research (tech tree)
+
+Four branches. A node costs **LoC + time**, and only **one node** can be
+researched at a time (more parallel slots later from Board Room).
+
+| Branch | Theme | Example nodes (in order) |
+|---|---|---|
+| Frontend | Products & clicks | HTML & CSS → React → Design System → Mobile Native |
+| Backend | Product income & contracts | REST APIs → Databases → Microservices → Distributed Systems |
+| AI | Reputation & late game | Statistics → Machine Learning → Deep Learning → AGI? |
+| DevOps | Efficiency & quality | Git → CI/CD → Docker → Kubernetes |
+
+Node rewards are one of three kinds:
+- **Unlock:** a product, a contract type, or a mechanic (e.g. Kubernetes unlocks automation earlier).
+- **Multiplier:** e.g. "SaaS Tools ×2", "Staff +20%".
+- **Quality of life:** e.g. more contract slots, fewer bug events, more offline time.
+
+Product unlocks now need **both** Rep and a technology (e.g. Cloud Platform needs
+1.5K Rep + Distributed Systems). ~24 nodes for v1 (6 per branch).
+Research resets on **Exit**; a Board Room upgrade can keep the first row.
+
+---
+
+## 7. Office & people
+
+### 7.1 Office (capacity)
+
+Every staff member needs a **seat**. When the office is full you cannot hire.
+
+| Office | Seats | Cost | Extra |
+|---|---|---|---|
+| Garage | 5 | start | — |
+| Co-working Space | 25 | $2K | — |
+| Office Floor | 100 | $250K | +1 contract slot |
+| Glass Tower | 500 | $40M | Talent market refreshes 2× faster |
+| Campus | 2.5K | $5B | +1 research slot |
+
+### 7.2 Morale
+
+Team morale (0–100%) multiplies **LoC/s** from 0.5× to 1.2×.
+- **Goes down:** overcrowding (> 90% of seats), long contract crunch (> 50% team on contracts for a long time), bug events.
+- **Goes up:** perks (free coffee, ping-pong, standing desks, team offsite), finishing contracts, positive events.
+- Under 30%: **burnout** — random staff quit (lose 1–3 of a cheap type).
+
+### 7.3 Talents
+
+Named, unique people with special bonuses. They appear in a **talent market**
+(3 candidates, refreshes every 5 min). Hiring costs Money and one seat.
+
+| Rarity | Chance | Example |
+|---|---|---|
+| Common | 70% | *Sam O., Night Owl:* offline earnings +10% |
+| Rare | 25% | *Rafael M., Product Designer:* Mobile Apps +50% |
+| Legendary | 5% | *Ada K., Backend Wizard:* every Senior Dev writes ×3 code |
+
+Max 5 talents at once (more from office tiers). **Talents stay after Exit**
+(but not after IPO), which makes each run a bit different.
+
+---
+
+## 8. Achievements
 
 Each unlocked achievement gives **+1% to all production** (multiplicative with
 everything else, additive with other achievements). Achievements survive both
@@ -132,7 +218,7 @@ Categories (~40 for v1):
 
 ---
 
-## 6. Offline progress
+## 9. Offline progress
 
 - On load: `elapsed = now − lastSave`, capped at **8 h** (can be raised with
   Board Room upgrades).
@@ -144,7 +230,7 @@ Categories (~40 for v1):
 
 ---
 
-## 7. Random events
+## 10. Random events
 
 A random event card appears every **2–5 minutes** (random). Positive events must
 be clicked within **15 s** or they disappear (like the golden cookie).
@@ -163,25 +249,25 @@ not punished. The ratio is about 75% positive / 25% negative.
 
 ---
 
-## 8. Prestige layer 1 — Exit (sell the company)
+## 11. Prestige layer 1 — Exit (sell the company)
 
 - **Requirement:** earn $1M total in the current run.
 - **Reward:** `XP gained = floor(√(runMoney / 1M)) − XP already earned in this run`
   (so the button shows "+N XP if you exit now").
 - **Effect of XP:** each XP gives **+2% to all production**, forever (until IPO).
-- **Resets:** LoC, $, Rep, staff, products, upgrades.
-- **Keeps:** XP, achievements, Shares, Board Room upgrades, statistics.
+- **Resets:** LoC, $, Rep, staff, products, upgrades, research, office, contracts.
+- **Keeps:** XP, achievements, talents, Shares, Board Room upgrades, statistics.
 - **Serial Founder perks** (free, unlocked by number of Exits):
   - 1 Exit: start each run with $100
   - 3 Exits: offline cap +4 h
   - 5 Exits: milestone upgrades cost 50% less
   - 10 Exits: unlock "Buy Max" automation for Interns
 
-## 9. Prestige layer 2 — IPO (go public)
+## 12. Prestige layer 2 — IPO (go public)
 
 - **Requirement:** 100 lifetime XP **and** $1B earned in the current run.
 - **Reward:** `Shares = floor(√(lifetimeXP / 25))`, minus Shares already gained from this level.
-- **Resets:** everything that Exit resets, **plus XP and Exit count**.
+- **Resets:** everything that Exit resets, **plus XP, Exit count and talents**.
 - **Keeps:** Shares, Board Room upgrades, achievements, statistics.
 - **Board Room shop** (spend Shares, permanent):
 
@@ -196,50 +282,50 @@ not punished. The ratio is about 75% positive / 25% negative.
 | Legacy Codebase | Keep milestone upgrades on Exit | 5 |
 | PR Team | Positive events ×1.5 more often | 4 |
 | QA Department | Negative events −50% duration | 4 |
+| R&D Lab | +1 parallel research slot | 4 |
+| Tech Heritage | Keep the first row of research on Exit | 3 |
+| Headhunter | Talent market: Legendary chance 5% → 10% | 5 |
 
 ---
 
-## 10. Production formula
+## 13. Production formula
 
 ```
-LoC/s   = Σ(staff.count × staff.base × staff.upgradeMult)
-          × globalMult
+LoC/s   = Σ(staff.count × staff.base × staff.upgradeMult × talentMult)
+          × globalMult × moraleMult          (moraleMult: 0.5 – 1.2)
+          (a share of this, set by the player, goes to the active contracts)
 
 Money/s = Σ(product.count × product.base × product.upgradeMult)
           × globalMult × (1 + √Rep / 100) × eventMult
 
 Rep/s   = Σ(product.count × product.rep) × globalMult
 
-globalMult = (1 + 0.02 × XP) × (1 + 0.01 × achievements) × otherGlobalUpgrades
+globalMult = (1 + 0.02 × XP) × (1 + 0.01 × achievements) × researchMult × otherGlobalUpgrades
 ```
 
 ---
 
-## 11. UI layout (web, modern cards)
+## 14. UI layout (web, modern cards)
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│  Ship It!     📄 1.23M LoC (+4.5K/s)   💵 $890K (+12K/s)   ⭐ 3.4K Rep │
-├───────────────┬──────────────────────────────────────────────────┤
-│               │ [Team] [Products] [Upgrades] [Achievements]       │
-│   ⌨️  WRITE    │ [Exit / IPO] [Stats] [Settings]                  │
-│     CODE      │ ┌────────────┐ ┌────────────┐ ┌────────────┐     │
-│   +12 LoC     │ │ 👩‍💻 Intern   │ │ 🧑‍💻 Junior  │ │ 🔒 ???      │     │
-│               │ │ owned: 34  │ │ owned: 12  │ │ needs 25 Rep│     │
-│ (event cards  │ │ $1.2K  [Buy]│ │ $890 [Buy] │ │            │     │
-│  appear here) │ └────────────┘ └────────────┘ └────────────┘     │
-└───────────────┴──────────────────────────────────────────────────┘
-```
+**See the clickable prototype:** https://claude.ai/artifact/DTgxc51UKKGSnmM1pwu5TS
 
-- On mobile: the click button is on top and tabs become a bottom bar.
-- Buy buttons are grey when you can't afford them, and show a progress bar
-  toward the cost.
-- Short toast notifications for achievements and events.
+- **Top bar:** game name and the three resources with their per-second rates.
+- **Left column:**
+  - "Write Code": a small code editor. Each click types a new (funny) line of code.
+  - Event card (when there is an event).
+  - Active contract with progress.
+  - Commit history graph: like the GitHub contribution graph, it fills up as you click.
+- **Right column, tabs:** Team · Products · Contracts · Research · Office ·
+  Upgrades · Achievements · Exit & IPO (+ Stats and Settings).
+- Cards show owned count, output, and a Buy button with a progress fill
+  toward the cost. Locked cards are dashed and show what is needed.
+- On mobile: one column, editor on top, tabs scroll sideways.
+- Light and dark theme.
 - Settings: number format, save export/import (base64 text), hard reset.
 
 ---
 
-## 12. Technical architecture
+## 15. Technical architecture
 
 The main rule: **`core/` never imports from the DOM, a framework, or the
 browser.** All platform-specific things go through small interfaces.
@@ -248,12 +334,16 @@ browser.** All platform-specific things go through small interfaces.
 src/
   core/                    # pure TypeScript, 100% unit-testable
     content/               # data only: staff.ts, products.ts, upgrades.ts,
+                           # contracts.ts, research.ts, offices.ts, talents.ts,
                            # achievements.ts, events.ts, boardroom.ts
     state.ts               # GameState type + createInitialState()
     systems/               # pure functions: (state, ...) => state changes
       production.ts        # rates and multipliers
       purchase.ts          # costs, buy x1/x10/max
       upgrades.ts
+      contracts.ts         # offers, assignment, deadlines
+      research.ts          # tree, queue
+      office.ts            # seats, morale, perks, talent market
       achievements.ts
       events.ts
       offline.ts
@@ -284,27 +374,29 @@ tests/                     # Vitest, mostly for core/
 
 ---
 
-## 13. Roadmap
+## 16. Roadmap
 
 | Milestone | Content | Result |
 |---|---|---|
 | **M0** | Vite + TS + Vitest + lint setup, folder structure | Empty project builds |
 | **M1** | Core state, click, LoC/$/Rep, staff, products, tick, save/load, basic card UI | First playable version |
 | **M2** | Upgrades (milestone + hand-made), buy x10/max | Real progression |
-| **M3** | Achievements + offline progress + stats tab | Long-term motivation |
-| **M4** | Random events | Moments of surprise |
-| **M5** | Exit (prestige 1) + Serial Founder perks | First reset loop |
-| **M6** | IPO (prestige 2) + Board Room + automation | Late game |
-| **M7** | Balancing pass, polish, mobile layout, GitHub Pages deploy | Release v1.0 |
+| **M3** | Office: seats, office tiers, morale, perks | Team management |
+| **M4** | Contracts | Goals with deadlines |
+| **M5** | Research tree | Choices and unlocks |
+| **M6** | Achievements, offline progress, stats tab | Long-term motivation |
+| **M7** | Random events + talent market | Surprise and variety |
+| **M8** | Exit (prestige 1) + Serial Founder perks | First reset loop |
+| **M9** | IPO (prestige 2) + Board Room + automation | Late game |
+| **M10** | Balancing pass, polish, mobile layout, GitHub Pages deploy | Release v1.0 |
 
 ---
 
-## 14. Open questions (please review)
+## 17. Open questions (please review)
 
-1. **Name:** is "Ship It!" OK? Other ideas: *Startup Tycoon*, *Commit & Conquer*,
-   *Git Rich*.
-2. **Rep multiplier:** `1 + √Rep / 100` gives ×2 at 10K Rep. Too strong or too weak?
-3. **First Exit timing:** target is about 30–45 minutes of active play. OK?
-4. **Negative events:** keep them, or make them optional in Settings?
-5. **Automation:** should auto-buy come earlier (Exit perk) or only after IPO?
-6. **Icons:** emoji (fast, zero assets) or an icon set like Lucide?
+1. **Rep multiplier:** `1 + √Rep / 100` gives ×2 at 10K Rep. Too strong or too weak?
+2. **First Exit timing:** target is about 30–45 minutes of active play. OK?
+3. **Negative events and burnout:** keep them, or make them optional in Settings?
+4. **Automation:** should auto-buy come earlier (Exit perk) or only after IPO?
+5. **Icons:** letter tiles like the prototype, emoji, or an icon set like Lucide?
+6. **Contracts:** is failing a late contract (−Rep) too harsh for an idle game?
