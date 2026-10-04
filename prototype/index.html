@@ -1,0 +1,588 @@
+<title>Git Rich</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: resource bar; three columns = Work (write, ship, debt) · Business (contracts, team) · Growth (projects, market, exit, log). Panels appear as the game reveals them. */
+:root {
+  --bg: #eef2f0; --surface: #ffffff; --surface-2: #e4ebe8; --line: #d3ddd8;
+  --fg: #14201b; --muted: #5a6a63;
+  --accent: #127a5a; --accent-soft: #d5ede3; --on-accent: #ffffff;
+  --money: #a86a12; --money-soft: #f6e8cf;
+  --rep: #6a46cc; --rep-soft: #e7e0fa;
+  --danger: #c0400f; --danger-soft: #fbe2d6;
+  --warn: #b7791f;
+  --editor-bg: #172420; --editor-fg: #d6e6de; --editor-dim: #6f8b80; --editor-kw: #7fd3ad; --editor-str: #f0c37a;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 14px; --r-sm: 9px;
+  --shadow: 0 1px 2px rgb(20 40 30 / .06), 0 4px 14px rgb(20 40 30 / .06);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1412; --surface: #161f1b; --surface-2: #1d2925; --line: #2a3832;
+  --fg: #e4eee9; --muted: #92a39b;
+  --accent: #43c592; --accent-soft: #173a2d; --on-accent: #06140e;
+  --money: #e5ad4f; --money-soft: #3a2c14;
+  --rep: #a88dff; --rep-soft: #2a2246;
+  --danger: #f27b4c; --danger-soft: #3d1f12;
+  --warn: #e5ad4f;
+  --editor-bg: #0a100e; --editor-fg: #d6e6de; --editor-dim: #5b7369; --editor-kw: #7fd3ad; --editor-str: #f0c37a;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 4px 14px rgb(0 0 0 / .25);
+  color-scheme: dark;
+}}
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #161f1b; --surface-2: #1d2925; --line: #2a3832;
+  --fg: #e4eee9; --muted: #92a39b;
+  --accent: #43c592; --accent-soft: #173a2d; --on-accent: #06140e;
+  --money: #e5ad4f; --money-soft: #3a2c14;
+  --rep: #a88dff; --rep-soft: #2a2246;
+  --danger: #f27b4c; --danger-soft: #3d1f12;
+  --warn: #e5ad4f;
+  --editor-bg: #0a100e; --editor-fg: #d6e6de; --editor-dim: #5b7369; --editor-kw: #7fd3ad; --editor-str: #f0c37a;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 4px 14px rgb(0 0 0 / .25);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.45; padding-inline: 16px; padding-block: 14px 40px; }
+.wrap { max-width: 1320px; margin-inline: auto; display: flex; flex-direction: column; gap: 14px; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* top bar */
+.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; box-shadow: var(--shadow); }
+.brand { display: flex; align-items: baseline; gap: 8px; margin-right: auto; }
+.brand h1 { font-family: var(--f-display); font-weight: 800; font-size: 26px; letter-spacing: -.02em; margin: 0; }
+.brand h1 span { color: var(--accent); }
+.brand small { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.res { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { display: grid; grid-template-columns: auto auto; column-gap: 8px; align-items: baseline; padding: 6px 12px; border-radius: var(--r-sm); background: var(--surface-2); min-width: 120px; animation: pop .5s ease-out; }
+.chip .lbl { grid-column: 1 / -1; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.chip .val { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 19px; font-weight: 600; }
+.chip .rate { white-space: nowrap; font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+.chip.loc .val { color: var(--accent); } .chip.money .val { color: var(--money); } .chip.rep .val { color: var(--rep); }
+.chip.debt[data-sev="good"] .val { color: var(--accent); } .chip.debt[data-sev="warn"] .val { color: var(--warn); } .chip.debt[data-sev="bad"] .val { color: var(--danger); }
+@keyframes pop { from { transform: scale(.9); opacity: 0; } }
+
+/* columns */
+.main { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.fresh > .box { animation: reveal .6s ease-out; box-shadow: 0 0 0 3px var(--rep-soft), var(--shadow); }
+@keyframes reveal { from { transform: translateY(8px); opacity: 0; } }
+.box h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.hint { font-size: 13px; color: var(--muted); margin: 0; }
+.kv { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--muted); }
+.kv b { color: var(--fg); font-weight: 600; font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; font-family: var(--f-body); }
+.pill.good { background: var(--accent-soft); color: var(--accent); }
+.pill.money { background: var(--money-soft); color: var(--money); }
+.pill.rep { background: var(--rep-soft); color: var(--rep); }
+.pill.bad { background: var(--danger-soft); color: var(--danger); }
+.bar { height: 8px; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 8px; transition: width .15s linear; }
+.bar.money > div { background: var(--money); } .bar.rep > div { background: var(--rep); } .bar.bad > div { background: var(--danger); }
+.bar.thin { height: 4px; }
+
+/* buttons */
+.btn { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 14px; position: relative; overflow: hidden; user-select: none; }
+.btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.btn > span { position: relative; z-index: 1; }
+.btn .num { font-size: 13px; }
+.btn .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent-soft); z-index: 0; }
+.btn:not(:disabled) .fill { display: none; }
+.btn.money { background: var(--money); }
+.btn.money .fill { background: var(--money-soft); }
+.btn.danger { background: var(--danger); color: #fff; }
+.btn:disabled, .btn.money:disabled, .btn.danger:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+.btn.ghost { background: transparent; border: 1.5px solid var(--line); color: var(--fg); }
+.btn.small { padding: 6px 10px; font-size: 13px; }
+
+/* editor */
+.editor { all: unset; box-sizing: border-box; display: flex; flex-direction: column; background: var(--editor-bg); color: var(--editor-fg); border-radius: var(--r); overflow: hidden; cursor: pointer; user-select: none; box-shadow: var(--shadow); touch-action: manipulation; }
+.editor:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.editor:active { transform: scale(.99); }
+.editor .tabbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: rgb(255 255 255 / .04); font-family: var(--f-mono); font-size: 12px; color: var(--editor-dim); }
+.editor .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--editor-dim); opacity: .5; }
+.editor .file { margin-left: 8px; color: var(--editor-fg); }
+.code { padding: 10px 12px; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6; height: 150px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+.code .line { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.code .line.new { animation: typein .2s ease-out; }
+.code .ln { color: var(--editor-dim); display: inline-block; width: 3.4em; }
+.code .kw { color: var(--editor-kw); } .code .st { color: var(--editor-str); } .code .cm { color: var(--editor-dim); }
+@keyframes typein { from { opacity: 0; transform: translateX(-6px); } }
+.editor .foot { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-top: 1px solid rgb(255 255 255 / .07); }
+.editor .foot .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.editor .foot strong { font-family: var(--f-display); font-size: 21px; font-weight: 800; }
+.editor .foot span { font-family: var(--f-mono); font-size: 12.5px; color: var(--editor-kw); }
+.flowbar { height: 5px; border-radius: 5px; background: rgb(255 255 255 / .08); overflow: hidden; }
+.flowbar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--editor-kw), var(--editor-str)); transition: width .1s linear; }
+.floaty { position: fixed; pointer-events: none; font-family: var(--f-mono); font-weight: 600; color: var(--accent); animation: floatup .8s ease-out forwards; z-index: 5; }
+@keyframes floatup { to { transform: translateY(-40px); opacity: 0; } }
+
+/* event cards */
+.event-bad { border: 1.5px solid var(--danger); background: var(--danger-soft); }
+.event-good { border: 1.5px dashed var(--money); background: var(--money-soft); }
+.event-bad h2, .event-good h2 { font-size: 16px; }
+
+/* slider */
+.slider { display: flex; flex-direction: column; gap: 6px; }
+.slider input { width: 100%; accent-color: var(--accent); }
+.slider .ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
+/* rows (contracts, staff) */
+.rows { display: flex; flex-direction: column; gap: 10px; }
+.row-card { border: 1px solid var(--line); border-radius: 12px; padding: 11px; display: flex; flex-direction: column; gap: 8px; background: var(--surface); }
+.row-card.locked { border-style: dashed; background: transparent; }
+.row-top { display: flex; gap: 10px; align-items: center; }
+.row-top h3 { margin: 0; font-size: 14.5px; font-weight: 700; }
+.row-top .sub { font-size: 12.5px; color: var(--muted); }
+.row-top .grow { flex: 1; min-width: 0; }
+.owned { font-family: var(--f-display); font-weight: 800; font-size: 22px; color: var(--muted); }
+.meta { display: flex; gap: 5px; flex-wrap: wrap; }
+.office { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface-2); font-size: 13.5px; }
+.office .bar { flex: 1 1 100px; }
+
+/* projects */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px; }
+.tile { border: 1px solid var(--line); border-radius: 12px; padding: 11px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.tile .t { font-weight: 700; font-size: 14px; }
+.tile .d { color: var(--muted); flex: 1; }
+
+/* log */
+.log { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; font-family: var(--f-mono); font-size: 12px; }
+.log div { display: grid; grid-template-columns: 3.6em 1fr; gap: 8px; color: var(--muted); }
+.log div b { font-weight: 400; color: var(--fg); }
+.log .ship b { color: var(--accent); } .log .bad b { color: var(--danger); } .log .reveal b { color: var(--rep); }
+
+.footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.footer .group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.seg { all: unset; cursor: pointer; padding: 4px 9px; border-radius: 7px; border: 1px solid var(--line); font-family: var(--f-mono); font-size: 12px; }
+.seg[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+.toasts { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; align-items: flex-end; z-index: 10; max-width: calc(100% - 32px); pointer-events: none; }
+.toast { background: var(--fg); color: var(--bg); padding: 9px 13px; border-radius: 11px; font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow); animation: toastin .25s ease-out; }
+.toast.reveal { background: var(--rep); color: #fff; }
+.toast.bad { background: var(--danger); color: #fff; }
+@keyframes toastin { from { transform: translateY(8px); opacity: 0; } }
+
+@media (max-width: 1100px) { .main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .col.c3 { grid-column: 1 / -1; } }
+@media (max-width: 720px) { .main { grid-template-columns: minmax(0, 1fr); } .chip { min-width: 0; flex: 1 1 140px; grid-template-columns: auto; } .res { width: 100%; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><h1>git <span>rich</span></h1><small id="ver"></small></div>
+    <div class="res" id="res"></div>
+  </header>
+
+  <div class="main">
+    <div class="col c1">
+      <button class="editor" id="editor" data-act="click" aria-label="Write code">
+        <div class="tabbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="file">src/app.ts</span></div>
+        <div class="code" id="code"></div>
+        <div class="foot">
+          <div class="row"><strong>Write code</strong><span id="click-val"></span></div>
+          <div class="flowbar"><div id="flow-bar"></div></div>
+          <div class="row"><span id="flow-txt" style="color:var(--editor-dim)"></span><span id="click-hint" style="color:var(--editor-dim)"></span></div>
+        </div>
+      </button>
+      <div id="p-events" class="col"></div>
+      <div id="p-ship"></div>
+      <div id="p-debt"></div>
+    </div>
+    <div class="col c2">
+      <div id="p-contracts"></div>
+      <div id="p-team"></div>
+    </div>
+    <div class="col c3">
+      <div id="p-projects"></div>
+      <div id="p-market"></div>
+      <div id="p-exit"></div>
+      <div id="p-log"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span id="run-info"></span>
+    <div class="group">
+      <span>Demo speed</span>
+      <button class="seg" data-act="speed" data-arg="1" aria-pressed="true">×1</button>
+      <button class="seg" data-act="speed" data-arg="5" aria-pressed="false">×5</button>
+      <button class="seg" data-act="speed" data-arg="20" aria-pressed="false">×20</button>
+      <button class="seg" data-act="reset" id="reset-btn">Reset save</button>
+    </div>
+  </div>
+</div>
+<div class="toasts" id="toasts"></div>
+
+<script src="core.js"></script>
+<script>
+(() => {
+const G = window.GitRich;
+const $ = (s) => document.querySelector(s);
+const fmt = G.fmt;
+const money = (n) => '$' + fmt(n);
+const pct = (x) => Math.round(x * 100) + '%';
+const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const SAVE_KEY = 'gitrich-proto-v1';
+
+let S = load();
+let speed = 1;
+let armed = { exit: 0, reset: 0 };
+
+function load() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return G.createState();
+    const data = JSON.parse(raw);
+    const s = Object.assign(G.createState(), data.state);
+    s.events = [];
+    const away = Math.min(7200, Math.max(0, (Date.now() - data.savedAt) / 1000));
+    if (away > 30) {
+      const m0 = s.money;
+      for (let i = 0; i < away; i++) G.tick(s, 1, () => 0.999);
+      s.viral = null;
+      s.events = [];
+      G.__welcome = `While you were away (${Math.round(away / 60)} min) your team kept working: +${money(s.money - m0)}.`;
+    }
+    return s;
+  } catch (_) { return G.createState(); }
+}
+function save() {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), state: Object.assign({}, S, { events: [] }) })); } catch (_) {}
+}
+
+/* ---------- editor ---------- */
+const SNIPPETS = [
+  '<span class="kw">import</span> { idea } <span class="kw">from</span> <span class="st">"./shower-thoughts"</span>;',
+  '<span class="kw">const</span> app = createApp(idea);',
+  'app.use(coffee({ cups: <span class="st">3</span> }));',
+  '<span class="kw">if</span> (user.isHappy) ship(feature);',
+  '<span class="kw">await</span> deploy(<span class="st">"friday 17:59"</span>);',
+  '<span class="kw">function</span> handlePayment(order) {',
+  '  <span class="kw">return</span> stripe.charge(order.total);',
+  '}',
+  '<span class="kw">try</span> { db.migrate() } <span class="kw">catch</span> { pray() }',
+  '<span class="cm">// TODO: write tests (someday)</span>',
+  'router.get(<span class="st">"/pricing"</span>, showPlans);',
+  '<span class="kw">export default</span> app;',
+  '<span class="cm">// fix: fix the fix</span>',
+  'cache.set(key, value, { ttl: <span class="st">60</span> });',
+  '<span class="kw">const</span> users = <span class="kw">await</span> db.users.findAll();',
+  'logger.info(<span class="st">"it works on my machine"</span>);',
+];
+let lineNo = 1, snip = 0;
+const codeEl = $('#code');
+const lines = [];
+function pushLine() {
+  lines.push(`<span class="ln">${lineNo++}</span>${SNIPPETS[snip++ % SNIPPETS.length]}`);
+  if (lines.length > 7) lines.shift();
+  codeEl.innerHTML = lines.map((l, i) => `<div class="line${i === lines.length - 1 ? ' new' : ''}">${l}</div>`).join('');
+}
+pushLine();
+
+/* ---------- toasts ---------- */
+function toast(text, kind) {
+  const t = document.createElement('div');
+  t.className = 'toast ' + (kind || '');
+  t.textContent = text;
+  $('#toasts').appendChild(t);
+  setTimeout(() => t.remove(), kind === 'reveal' ? 5000 : 3000);
+  while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
+}
+
+/* ---------- actions ---------- */
+function act(el, e) {
+  const a = el.dataset.act, arg = el.dataset.arg;
+  switch (a) {
+    case 'click': {
+      const v = G.click(S);
+      pushLine();
+      const f = document.createElement('div');
+      f.className = 'floaty'; f.textContent = '+' + fmt(v);
+      const r = el.getBoundingClientRect();
+      f.style.left = ((e && e.clientX) || r.left + r.width / 2) + 'px';
+      f.style.top = (((e && e.clientY) || r.top + 80) - 20) + 'px';
+      document.body.appendChild(f); setTimeout(() => f.remove(), 800);
+      break;
+    }
+    case 'ship': G.ship(S, Math.random); break;
+    case 'hotfix': G.hotfix(S); break;
+    case 'viral': G.claimViral(S); break;
+    case 'deliver': G.deliver(S, Number(arg)); break;
+    case 'hire': G.buyStaff(S, arg); break;
+    case 'office': G.moveOffice(S); break;
+    case 'market': G.buyMarket(S); break;
+    case 'project': G.buyProject(S, arg); break;
+    case 'autoship': S.autoShip = !S.autoShip; break;
+    case 'exit':
+      if (Date.now() - armed.exit < 4000) { const n = G.exit(S); if (n) { S = n; armed.exit = 0; save(); } }
+      else armed.exit = Date.now();
+      break;
+    case 'reset':
+      if (Date.now() - armed.reset < 4000) { try { localStorage.removeItem(SAVE_KEY); } catch (_) {} S = G.createState(); armed.reset = 0; lines.length = 0; lineNo = 1; pushLine(); }
+      else armed.reset = Date.now();
+      break;
+    case 'speed':
+      speed = Number(arg);
+      document.querySelectorAll('[data-act="speed"]').forEach((b) => b.setAttribute('aria-pressed', b === el));
+      break;
+  }
+  render(true);
+}
+// pointerdown so rapid clicks never get lost when a panel re-renders; click (detail 0) for keyboard
+document.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  if (el.dataset.act === 'click') e.preventDefault();
+  act(el, e);
+});
+document.addEventListener('click', (e) => {
+  if (e.detail !== 0) return;
+  const el = e.target.closest('[data-act]');
+  if (el && !el.disabled) act(el, null);
+});
+document.addEventListener('input', (e) => {
+  if (e.target.id === 'refactor') G.setRefactor(S, Number(e.target.value) / 100);
+  if (e.target.id === 'autodebt') S.autoShipDebt = Number(e.target.value) / 100;
+});
+
+/* ---------- panels (re-rendered only when their key changes) ---------- */
+const keys = {};
+function panel(id, key, html) {
+  if (keys[id] === key) return;
+  const el = document.getElementById(id);
+  const wasHidden = keys[id] === undefined || keys[id] === 'hidden';
+  keys[id] = key;
+  el.innerHTML = html();
+  // highlight a panel only the moment it first appears
+  if (wasHidden && key !== 'hidden' && id.startsWith('p-') && id !== 'p-log' && S.t > 1) {
+    el.classList.add('fresh');
+    setTimeout(() => el.classList.remove('fresh'), 2500);
+  }
+}
+const sev = (d) => (d < 0.1 ? 'good' : d < 0.25 ? 'warn' : 'bad');
+
+function renderResources() {
+  const R = G.rates(S);
+  const chips = [['loc', 'Unshipped code', 'r-loc', 'r-loc-rate']];
+  if (S.revealed.money) chips.push(['money', 'Money', 'r-money', 'r-mrr']);
+  if (S.revealed.rep) chips.push(['rep', 'Reputation', 'r-rep', null]);
+  if (S.revealed.debt) chips.push(['debt', 'Tech debt', 'r-debt', 'r-quality']);
+  if (S.xp) chips.push(['xp', 'Experience', 'r-xp', null]);
+  panel('res', chips.map((c) => c[0]).join(), () => chips.map(([k, l, v, r]) => `<div class="chip ${k}" id="chip-${k}"><span class="lbl">${l}</span><span class="val" id="${v}"></span>${r ? `<span class="rate" id="${r}"></span>` : ''}</div>`).join(''));
+  $('#r-loc').textContent = fmt(S.loc);
+  $('#r-loc-rate').textContent = R.feature ? '+' + fmt(R.feature) + '/s' : '';
+  if ($('#r-money')) { $('#r-money').textContent = money(S.money); $('#r-mrr').textContent = S.revealed.ship ? '+' + money(G.mrr(S)) + '/s' : ''; }
+  if ($('#r-rep')) $('#r-rep').textContent = fmt(S.rep);
+  if ($('#r-debt')) { const d = G.debtPct(S); $('#r-debt').textContent = pct(d); $('#chip-debt').dataset.sev = sev(d); $('#r-quality').textContent = 'income ×' + G.quality(S).toFixed(2); }
+  if ($('#r-xp')) $('#r-xp').textContent = S.xp + ' XP';
+  $('#ver').textContent = `main · ${G.versionStr(S)}`;
+}
+
+function renderEditor() {
+  $('#click-val').textContent = '+' + fmt(G.clickValue(S)) + ' LoC';
+  $('#flow-bar').style.width = S.flow + '%';
+  $('#flow-txt').textContent = `Flow ×${G.flowMult(S).toFixed(2)}`;
+  $('#click-hint').textContent = S.flow < 20 ? 'click steadily to build flow' : S.flow > 95 ? 'in the zone' : '';
+}
+
+function renderEvents() {
+  const inc = S.incident, vir = S.viral;
+  panel('p-events', `${!!inc}|${!!vir}`, () => `
+    ${inc ? `<div class="box event-bad"><h2>Incident in production <span class="pill bad">Income ×0.5</span></h2>
+      <p class="hint" id="inc-why"></p>
+      <div class="bar thin bad"><div id="inc-bar"></div></div>
+      <button class="btn danger" data-act="hotfix"><span>Hotfix</span><span class="num" id="inc-left"></span></button></div>` : ''}
+    ${vir ? `<div class="box event-good"><h2>Your app is trending! <span class="pill money">Event</span></h2>
+      <p class="hint">Claim it for Income ×2 for 30 s and a Reputation boost.</p>
+      <div class="bar thin money"><div id="vir-bar"></div></div>
+      <button class="btn money" data-act="viral"><span>Ride the wave</span><span class="num" id="vir-left"></span></button></div>` : ''}`);
+  if (inc) {
+    $('#inc-why').textContent = `${inc.why} Click Hotfix ${inc.left} more times${S.done.monitor ? ', or wait for monitoring to fix it' : ', or wait for it to fade'}.`;
+    $('#inc-left').textContent = `${inc.left} left`;
+    $('#inc-bar').style.width = (100 - inc.t / (S.done.monitor ? 20 : 60) * 100) + '%';
+  }
+  if (vir) { const l = Math.max(0, vir.until - S.t); $('#vir-left').textContent = Math.ceil(l) + ' s'; $('#vir-bar').style.width = l / 12 * 100 + '%'; }
+}
+
+function renderShip() {
+  if (!S.revealed.ship) { panel('p-ship', 'hidden', () => ''); return; }
+  panel('p-ship', `ship|${!!S.done.cicd}|${S.autoShip}`, () => `<div class="box">
+    <h2>Release <span class="pill good" id="ship-ver"></span></h2>
+    <p class="hint">Shipping turns your unshipped code into monthly revenue (MRR) and Reputation. Your money comes from what you ship.</p>
+    <div class="kv"><span>Unshipped code</span><b id="sh-loc"></b></div>
+    <div class="kv"><span>Shipping now adds</span><b id="sh-gain"></b></div>
+    <div class="kv"><span>Chance of an incident</span><b id="sh-risk"></b></div>
+    <button class="btn" data-act="ship" id="ship-btn"><span class="fill" id="ship-fill"></span><span id="ship-lbl"></span><span class="num" id="ship-sub"></span></button>
+    ${S.done.cicd ? `<div class="kv" style="align-items:center"><span>Auto-ship while debt is under <b id="ad-lbl"></b></span>
+      <button class="btn small ${S.autoShip ? '' : 'ghost'}" data-act="autoship">${S.autoShip ? 'On' : 'Off'}</button></div>
+      <input type="range" id="autodebt" min="5" max="40" step="1" value="${Math.round(S.autoShipDebt * 100)}" aria-label="Auto-ship debt limit">` : ''}
+  </div>`);
+  const gain = G.shipGain(S);
+  $('#ship-ver').textContent = 'next ' + G.versionStr({ version: S.version[1] === 9 ? [S.version[0] + 1, 0] : [S.version[0], S.version[1] + 1] });
+  $('#sh-loc').textContent = fmt(S.loc) + ' lines';
+  $('#sh-gain').textContent = `+${money(gain)}/s · +${fmt(0.6 * Math.sqrt(S.loc) * G.quality(S) * (S.done.brand ? 1.5 : 1))} Rep`;
+  const risk = G.incidentChance(S);
+  $('#sh-risk').textContent = pct(risk);
+  $('#sh-risk').style.color = risk < 0.15 ? 'var(--accent)' : risk < 0.35 ? 'var(--warn)' : 'var(--danger)';
+  const b = $('#ship-btn');
+  b.disabled = !G.canShip(S);
+  if (S.deployLeft > 0) { $('#ship-lbl').textContent = 'Deploying…'; $('#ship-sub').textContent = Math.ceil(S.deployLeft) + ' s'; $('#ship-fill').style.width = (1 - S.deployLeft / G.DEPLOY_TIME) * 100 + '%'; }
+  else if (S.loc < G.MIN_SHIP) { $('#ship-lbl').textContent = 'Ship'; $('#ship-sub').textContent = `need ${G.MIN_SHIP} lines`; $('#ship-fill').style.width = S.loc / G.MIN_SHIP * 100 + '%'; }
+  else { $('#ship-lbl').textContent = 'Ship it'; $('#ship-sub').textContent = fmt(S.loc) + ' lines'; }
+  if ($('#ad-lbl')) $('#ad-lbl').textContent = pct(S.autoShipDebt);
+}
+
+function renderDebt() {
+  if (!S.revealed.debt) { panel('p-debt', 'hidden', () => ''); return; }
+  panel('p-debt', 'debt', () => `<div class="box">
+    <h2>Tech debt <span class="pill" id="debt-pill"></span></h2>
+    <p class="hint">Fast, sloppy code piles up debt. Debt lowers your income and causes incidents. Put part of the team on refactoring to pay it down.</p>
+    <div class="bar"><div id="debt-bar"></div></div>
+    <div class="kv"><span>Income multiplier</span><b id="debt-q"></b></div>
+    <div class="kv"><span>Debt per second</span><b id="debt-rate"></b></div>
+    <div class="kv"><span>Big-team bugs (Brooks's law)</span><b id="debt-team"></b></div>
+    <div class="slider"><label for="refactor" class="kv"><span>Team time on refactoring</span><b id="ref-lbl"></b></label>
+      <input type="range" id="refactor" min="0" max="90" step="5" value="${Math.round(S.refactor * 100)}">
+      <div class="ends"><span>All features</span><span>Mostly cleanup</span></div></div>
+  </div>`);
+  const d = G.debtPct(S), R = G.rates(S);
+  $('#debt-pill').textContent = pct(d);
+  $('#debt-pill').className = 'pill ' + (sev(d) === 'good' ? 'good' : sev(d) === 'warn' ? 'money' : 'bad');
+  $('#debt-bar').style.width = Math.min(100, d * 200) + '%';
+  $('#debt-bar').parentElement.className = 'bar ' + (sev(d) === 'bad' ? 'bad' : sev(d) === 'warn' ? 'money' : '');
+  $('#debt-q').textContent = '×' + G.quality(S).toFixed(2);
+  const net = R.bug - R.refactor;
+  $('#debt-rate').textContent = (net >= 0 ? '+' : '') + fmt(net) + '/s';
+  $('#debt-team').textContent = '×' + G.teamBug(S).toFixed(2);
+  $('#ref-lbl').textContent = pct(S.refactor);
+  const sl = $('#refactor'); if (document.activeElement !== sl) sl.value = Math.round(S.refactor * 100);
+}
+
+function renderContracts() {
+  if (!S.revealed.contracts) { panel('p-contracts', 'hidden', () => ''); return; }
+  const key = 'c|' + S.contracts.map((c) => c.id + ':' + G.contractOk(S, c)).join(',');
+  panel('p-contracts', key, () => `<div class="box">
+    <h2>Client work <span class="pill money">Fast cash</span></h2>
+    <p class="hint">Clients pay once, right away. Your own product pays a little every second, forever. Both use the same code.</p>
+    <div class="rows">${S.contracts.length ? S.contracts.map((c) => `<div class="row-card">
+      <div class="row-top"><div class="grow"><h3>${esc(c.job[0].toUpperCase() + c.job.slice(1))}</h3><div class="sub">${esc(c.client)}</div></div></div>
+      <div class="meta"><span class="pill">${fmt(c.size)} lines</span><span class="pill money">${money(c.pay)}</span><span class="pill rep">+${c.rep} Rep</span>
+        ${c.maxDebt != null ? `<span class="pill ${G.debtPct(S) <= c.maxDebt ? 'good' : 'bad'}">debt ≤ ${pct(c.maxDebt)}</span>` : ''}</div>
+      <div class="bar thin"><div data-exp="${c.id}"></div></div>
+      <button class="btn money" data-act="deliver" data-arg="${c.id}" ${G.contractOk(S, c) ? '' : 'disabled'}><span class="fill" data-cfill="${c.id}"></span><span>Deliver</span><span class="num">${G.contractOk(S, c) ? '+' + money(c.pay) : c.maxDebt != null && G.debtPct(S) > c.maxDebt ? 'too much debt' : fmt(c.size) + ' lines'}</span></button>
+    </div>`).join('') : '<p class="hint">No offers right now. New clients will call soon.</p>'}</div></div>`);
+  for (const c of S.contracts) {
+    const e = document.querySelector(`[data-exp="${c.id}"]`); if (e) e.style.width = Math.max(0, (c.expires - S.t) / 180 * 100) + '%';
+    const f = document.querySelector(`[data-cfill="${c.id}"]`); if (f) f.style.width = Math.min(100, S.loc / c.size * 100) + '%';
+  }
+}
+
+function renderTeam() {
+  if (!S.revealed.team) { panel('p-team', 'hidden', () => ''); return; }
+  const shown = [];
+  for (const d of G.STAFF) {
+    if (G.staffUnlocked(S, d) || S.staff[d.id]) shown.push(d);
+    else { if (!d.needs) shown.push(d); break; }
+  }
+  const full = G.headcount(S) >= G.seats(S);
+  const nextOffice = G.OFFICES[S.office + 1];
+  const key = ['t', S.office, full, shown.map((d) => d.id + S.staff[d.id] + G.staffUnlocked(S, d) + (S.money >= G.staffCost(S, d.id))).join(','), nextOffice && S.money >= nextOffice.cost && S.rep >= nextOffice.rep].join('|');
+  panel('p-team', key, () => `<div class="box">
+    <h2>Team</h2>
+    <div class="office"><b>${G.OFFICES[S.office].name}</b><span class="num">${G.headcount(S)} / ${G.seats(S)} seats</span>
+      <div class="bar"><div style="width:${G.headcount(S) / G.seats(S) * 100}%"></div></div></div>
+    ${nextOffice ? `<button class="btn ${full ? 'money' : 'ghost'}" data-act="office" ${S.money >= nextOffice.cost && S.rep >= nextOffice.rep ? '' : 'disabled'}><span>Move to ${nextOffice.name} (${nextOffice.seats} seats)</span><span class="num">${S.rep < nextOffice.rep ? 'needs ' + fmt(nextOffice.rep) + ' Rep' : money(nextOffice.cost)}</span></button>` : ''}
+    <div class="rows">${shown.map((d) => {
+      const un = G.staffUnlocked(S, d);
+      if (!un) return `<div class="row-card locked"><div class="row-top"><div class="grow"><h3>${d.name}</h3><div class="sub">Unlocks at ${fmt(d.rep)} Reputation</div></div></div><div class="bar rep thin"><div style="width:${Math.min(100, S.rep / d.rep * 100)}%"></div></div></div>`;
+      const c = G.staffCost(S, d.id);
+      return `<div class="row-card"><div class="row-top"><div class="grow"><h3>${d.name}</h3><div class="sub">${d.note}</div></div><span class="owned num">${S.staff[d.id]}</span></div>
+        <div class="meta"><span class="pill good">${fmt(d.out)} LoC/s</span><span class="pill ${d.bug >= 0.3 ? 'bad' : d.bug >= 0.1 ? 'money' : 'good'}">${pct(G.staffBug(S, d))} bugs</span></div>
+        <button class="btn" data-act="hire" data-arg="${d.id}" ${!full && S.money >= c ? '' : 'disabled'}><span class="fill" data-hfill="${d.id}"></span><span>Hire</span><span class="num">${full ? 'office full' : money(c)}</span></button></div>`;
+    }).join('')}</div></div>`);
+  for (const d of shown) { const f = document.querySelector(`[data-hfill="${d.id}"]`); if (f) f.style.width = Math.min(100, S.money / G.staffCost(S, d.id) * 100) + '%'; }
+}
+
+function renderProjects() {
+  const vis = G.PROJECTS.filter((p) => G.projectVisible(S, p));
+  if (!S.revealed.projects || !vis.length) { panel('p-projects', S.revealed.projects ? 'empty' : 'hidden', () => S.revealed.projects ? `<div class="box"><h2>Projects</h2><p class="hint">No new projects right now. Keep growing to discover more.</p></div>` : ''); return; }
+  panel('p-projects', 'p|' + vis.map((p) => p.id + G.canAffordProject(S, p)).join(','), () => `<div class="box">
+    <h2>Projects <span class="pill rep">Change the rules</span></h2>
+    <div class="tiles">${vis.map((p) => `<div class="tile"><span class="t">${p.name}</span><span class="d">${p.desc}</span>
+      <button class="btn small ${p.cost.money ? 'money' : ''}" data-act="project" data-arg="${p.id}" ${G.canAffordProject(S, p) ? '' : 'disabled'}><span class="fill" data-pfill="${p.id}"></span><span>Start</span><span class="num">${p.cost.money ? money(p.cost.money) : fmt(p.cost.loc) + ' lines'}</span></button></div>`).join('')}</div></div>`);
+  for (const p of vis) { const f = document.querySelector(`[data-pfill="${p.id}"]`); if (f) f.style.width = Math.min(100, (p.cost.money ? S.money / p.cost.money : S.loc / p.cost.loc) * 100) + '%'; }
+}
+
+function renderMarket() {
+  if (!S.revealed.markets) { panel('p-market', 'hidden', () => ''); return; }
+  const nx = G.MARKETS[S.market + 1];
+  panel('p-market', `m|${S.market}|${nx && S.money >= nx.cost && S.rep >= nx.rep}`, () => `<div class="box">
+    <h2>Market <span class="pill good">${G.MARKETS[S.market].name}</span></h2>
+    <p class="hint">Each market can only pay so much. When it is nearly full, new releases add little. Expand, or take client work.</p>
+    <div class="kv"><span>Market filled</span><b id="mk-sat"></b></div>
+    <div class="bar money"><div id="mk-bar"></div></div>
+    <div class="kv"><span>Market size</span><b>${money(G.cap(S))}/s</b></div>
+    ${nx ? `<button class="btn money" data-act="market" ${S.money >= nx.cost && S.rep >= nx.rep ? '' : 'disabled'}><span class="fill" id="mk-fill"></span><span>Launch ${nx.name}</span><span class="num">${S.rep < nx.rep ? 'needs ' + fmt(nx.rep) + ' Rep' : money(nx.cost)}</span></button>` : ''}
+  </div>`);
+  $('#mk-sat').textContent = pct(G.saturation(S));
+  $('#mk-bar').style.width = G.saturation(S) * 100 + '%';
+  if (nx && $('#mk-fill')) $('#mk-fill').style.width = Math.min(100, S.money / nx.cost * 100) + '%';
+}
+
+function renderExit() {
+  if (!S.revealed.exit) { panel('p-exit', 'hidden', () => ''); return; }
+  const ok = G.valuation(S) >= G.EXIT_VALUATION;
+  const isArmed = Date.now() - armed.exit < 4000;
+  panel('p-exit', `x|${ok}|${isArmed}`, () => `<div class="box">
+    <h2>Sell the company <span class="pill rep">Prestige</span></h2>
+    <p class="hint">Valuation is your income × 500. Selling starts a new company from zero, but every XP makes code and income 25% stronger, forever.</p>
+    <div class="kv"><span>Valuation</span><b id="ex-val"></b></div>
+    <div class="bar rep"><div id="ex-bar"></div></div>
+    <div class="kv"><span>XP if you sell now</span><b id="ex-xp"></b></div>
+    <button class="btn ${isArmed ? 'danger' : ''}" data-act="exit" ${ok ? '' : 'disabled'}><span>${isArmed ? 'Click again to sell' : 'Sell company'}</span><span class="num">${ok ? '' : 'needs $1M'}</span></button>
+  </div>`);
+  $('#ex-val').textContent = money(G.valuation(S));
+  $('#ex-bar').style.width = Math.min(100, G.valuation(S) / G.EXIT_VALUATION * 100) + '%';
+  $('#ex-xp').textContent = '+' + G.xpGain(S);
+}
+
+function renderLog() {
+  const top = S.feed[0];
+  panel('p-log', 'l|' + S.feed.length + '|' + (top ? top.t + top.text : ''), () => `<div class="box">
+    <h2>git log</h2>
+    <div class="log">${S.feed.length ? S.feed.map((f) => `<div class="${f.kind}"><span>${String(Math.floor(f.t / 60)).padStart(2, '0')}:${String(Math.floor(f.t % 60)).padStart(2, '0')}</span><b>${esc(f.text)}</b></div>`).join('') : '<div><span>00:00</span><b>Initial commit. Click the editor to start writing code.</b></div>'}</div></div>`);
+}
+
+function render() {
+  renderResources(); renderEditor(); renderEvents(); renderShip(); renderDebt();
+  renderContracts(); renderTeam(); renderProjects(); renderMarket(); renderExit(); renderLog();
+  const m = Math.floor(S.t / 60);
+  $('#run-info').textContent = `Run time ${m} min · Company #${S.exits + 1}${S.xp ? ` · ${S.xp} XP (×${(1 + 0.25 * S.xp).toFixed(2)})` : ''}`;
+  $('#reset-btn').textContent = Date.now() - armed.reset < 4000 ? 'Click again to reset' : 'Reset save';
+}
+
+/* ---------- loop ---------- */
+let last = performance.now(), saveAt = 0;
+function frame(now) {
+  let dt = Math.min(1, (now - last) / 1000) * speed;
+  last = now;
+  while (dt > 0) { const step = Math.min(0.1, dt); G.tick(S, step, Math.random); dt -= step; }
+  for (const ev of S.events) toast(ev.text, ev.kind);
+  S.events.length = 0;
+  render();
+  if (now > saveAt) { save(); saveAt = now + 5000; }
+  requestAnimationFrame(frame);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+if (G.__welcome) setTimeout(() => toast(G.__welcome, 'reveal'), 300);
+render();
+requestAnimationFrame(frame);
+})();
+</script>

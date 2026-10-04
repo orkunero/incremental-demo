@@ -111,3 +111,28 @@ release'te Team, ilk bug'da Research… Her sekme bir "aha" anı oluyor.
 
 **F. Daha az ama derin sistem.** Ofis ayrı sekme olmaktan çıkıp Team'in içine
 giriyor. Her sistem yukarıdaki gerilime (borç, release, flow) bağlanıyor.
+
+---
+
+## 5. Uygulama ve yeniden ölçüm (demo v2)
+
+Bütün öneriler `prototype/` içinde oynanabilir demo olarak uygulandı
+(https://claude.ai/artifact/DTgxc51UKKGSnmM1pwu5TS). Kurallar `prototype/core.js`
+dosyasında. Tarayıcıdaki demo ve `prototype/sim.js` simülasyonu aynı kodu çalıştırıyor.
+Yeni tasarım [GDD v0.3](GDD.md).
+
+| Sorun | Çözüm | Ölçüm (sim) |
+|---|---|---|
+| Merkezde karar yok | Teknik borç + refactor slider'ı + yayın riski | Borç %5–15 arasında gidip geliyor, turda ~20 incident |
+| Kaynak dönüşümü pasif | **Ship** fiili ve kontrat ↔ ürün seçimi | Turda ~180 release, ~9 kontrat |
+| Tıklama 10. dakikada ölüyor | Flow çarpanı + tıklama = ekip hızının %2'si | Tıklamanın payı ilk dakika %83, sonra ~%23 |
+| Plato → patlama, duvar yok | Pazar doygunluğu (soft cap) + koltuk sınırı | Alımlar arası p90 ~20–30 sn, Exit öncesi 3–5 dk duvar |
+| Exit'e sebep yok | Duvar + XP (+%25/XP) | 1. Exit 30 dk (pasif oyuncu 38 dk), 3. tur 19 dk |
+| Her şey baştan açık | Kademeli açılış (8 adım) | Başta sadece editör ve git log var |
+| Tema sadece kaplama | Brooks yasası, incident, hotfix, CI/CD, code review | — |
+| Özensiz UI | Editör satır hatası, soluk paneller, okunmayan pasif butonlar düzeltildi | Tarayıcı testi: konsolda oyun hatası yok, 400 px'te yatay taşma yok |
+
+Oynarken bulunup düzeltilen hatalar: kontrat teslim etmeyen oyuncu için Money/Team
+panellerinin hiç açılmaması; ilk 100 saniyede 2 incident çıkması (ilk 3 release artık güvenli).
+
+Tekrar ölçmek için: `node prototype/sim.js 5` (aktif) · `node prototype/sim.js 5 10` (10 dk sonra pasif).
