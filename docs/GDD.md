@@ -185,7 +185,7 @@ After the first sale. Starting one ends the current company with no Founder Poin
 | Ramen Budget | Hires, offices, markets cost ×3 | $10M | Hires −10% |
 | Cowboy Coding | No Process upgrades | $10M | All bugs −15% |
 
-Measured: each is completable in 23–42 min with a few early perks.
+Measured: each is completable in 22–44 min with a few early perks.
 
 ### 5.15 Automation (`.github/workflows.yml`)
 Bots come from upgrades (and two perks) and can be switched off: CI/CD (auto-ship under a
