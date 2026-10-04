@@ -9,4 +9,5 @@ Playable demo of the v0.3 design (see `docs/GDD.md`).
 ```
 node prototype/sim.js 5      # active player, 5 clicks/s
 node prototype/sim.js 5 10   # clicks for 10 minutes, then idles
+node prototype/sim.js 5 - 2  # active player, only 2 companies
 ```

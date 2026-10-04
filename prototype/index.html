@@ -1,221 +1,313 @@
 <title>Git Rich</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
 <style>
-/* Layout: resource bar; three columns = Work (write, ship, debt) · Business (contracts, team) · Growth (projects, market, exit, log). Panels appear as the game reveals them. */
+/* Layout: an IDE window. Title bar (Ship = Run) · Explorer (files appear as the company grows) · app.ts (click to write) · open file · bottom panel (Terminal = git log, Problems = tech debt) · status bar (resources). */
 :root {
-  --bg: #eef2f0; --surface: #ffffff; --surface-2: #e4ebe8; --line: #d3ddd8;
-  --fg: #14201b; --muted: #5a6a63;
-  --accent: #127a5a; --accent-soft: #d5ede3; --on-accent: #ffffff;
-  --money: #a86a12; --money-soft: #f6e8cf;
-  --rep: #6a46cc; --rep-soft: #e7e0fa;
-  --danger: #c0400f; --danger-soft: #fbe2d6;
-  --warn: #b7791f;
-  --editor-bg: #172420; --editor-fg: #d6e6de; --editor-dim: #6f8b80; --editor-kw: #7fd3ad; --editor-str: #f0c37a;
+  --bg: #e7ece9; --win: #f7f9f8; --side: #eef2f0; --pane: #ffffff; --raise: #f1f5f3; --line: #d5ded9; --hover: #e3ebe7;
+  --fg: #17221d; --muted: #5d6c65; --faint: #8b9992;
+  --accent: #117a58; --accent-soft: #d4ece2; --on-accent: #ffffff;
+  --money: #9a620f; --money-soft: #f5e7cc;
+  --rep: #6744c9; --rep-soft: #e6dffa;
+  --danger: #bf3f0e; --danger-soft: #fbe1d5;
+  --warn: #a8700f;
+  --status: #117a58; --on-status: #ffffff;
+  --code-bg: #fbfcfb; --code-fg: #1f2b26; --code-dim: #9aa8a1; --code-kw: #0f7a8a; --code-str: #a3480f; --code-cm: #7c8f86; --code-fn: #6744c9;
   --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
   --f-body: "Figtree", "Segoe UI", system-ui, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --r: 14px; --r-sm: 9px;
-  --shadow: 0 1px 2px rgb(20 40 30 / .06), 0 4px 14px rgb(20 40 30 / .06);
+  --shadow: 0 10px 40px rgb(20 40 30 / .14), 0 2px 6px rgb(20 40 30 / .08);
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0e1412; --surface: #161f1b; --surface-2: #1d2925; --line: #2a3832;
-  --fg: #e4eee9; --muted: #92a39b;
-  --accent: #43c592; --accent-soft: #173a2d; --on-accent: #06140e;
-  --money: #e5ad4f; --money-soft: #3a2c14;
-  --rep: #a88dff; --rep-soft: #2a2246;
-  --danger: #f27b4c; --danger-soft: #3d1f12;
-  --warn: #e5ad4f;
-  --editor-bg: #0a100e; --editor-fg: #d6e6de; --editor-dim: #5b7369; --editor-kw: #7fd3ad; --editor-str: #f0c37a;
-  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 4px 14px rgb(0 0 0 / .25);
+  --bg: #0b100e; --win: #121916; --side: #151d19; --pane: #19221e; --raise: #1f2a25; --line: #2a3832; --hover: #22302a;
+  --fg: #e3ede8; --muted: #94a59d; --faint: #6b7d75;
+  --accent: #45c793; --accent-soft: #163a2c; --on-accent: #05140d;
+  --money: #e6ae50; --money-soft: #392b13;
+  --rep: #a98fff; --rep-soft: #29214a;
+  --danger: #f37c4d; --danger-soft: #3d1e11;
+  --warn: #e6ae50;
+  --status: #1c6b4f; --on-status: #e8fff5;
+  --code-bg: #121916; --code-fg: #d5e4dc; --code-dim: #546a60; --code-kw: #7fd3ad; --code-str: #f0c37a; --code-cm: #62786e; --code-fn: #b9a6ff;
+  --shadow: 0 10px 40px rgb(0 0 0 / .5), 0 2px 6px rgb(0 0 0 / .3);
   color-scheme: dark;
 }}
 :root[data-theme="dark"] {
-  --bg: #0e1412; --surface: #161f1b; --surface-2: #1d2925; --line: #2a3832;
-  --fg: #e4eee9; --muted: #92a39b;
-  --accent: #43c592; --accent-soft: #173a2d; --on-accent: #06140e;
-  --money: #e5ad4f; --money-soft: #3a2c14;
-  --rep: #a88dff; --rep-soft: #2a2246;
-  --danger: #f27b4c; --danger-soft: #3d1f12;
-  --warn: #e5ad4f;
-  --editor-bg: #0a100e; --editor-fg: #d6e6de; --editor-dim: #5b7369; --editor-kw: #7fd3ad; --editor-str: #f0c37a;
-  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 4px 14px rgb(0 0 0 / .25);
+  --bg: #0b100e; --win: #121916; --side: #151d19; --pane: #19221e; --raise: #1f2a25; --line: #2a3832; --hover: #22302a;
+  --fg: #e3ede8; --muted: #94a59d; --faint: #6b7d75;
+  --accent: #45c793; --accent-soft: #163a2c; --on-accent: #05140d;
+  --money: #e6ae50; --money-soft: #392b13;
+  --rep: #a98fff; --rep-soft: #29214a;
+  --danger: #f37c4d; --danger-soft: #3d1e11;
+  --warn: #e6ae50;
+  --status: #1c6b4f; --on-status: #e8fff5;
+  --code-bg: #121916; --code-fg: #d5e4dc; --code-dim: #546a60; --code-kw: #7fd3ad; --code-str: #f0c37a; --code-cm: #62786e; --code-fn: #b9a6ff;
+  --shadow: 0 10px 40px rgb(0 0 0 / .5), 0 2px 6px rgb(0 0 0 / .3);
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
-body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 15px; line-height: 1.45; padding-inline: 16px; padding-block: 14px 40px; }
-.wrap { max-width: 1320px; margin-inline: auto; display: flex; flex-direction: column; gap: 14px; }
-.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14px; line-height: 1.45; padding-inline: 16px; padding-block: 16px; }
 button { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.num, .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 
-/* top bar */
-.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px 16px; box-shadow: var(--shadow); }
-.brand { display: flex; align-items: baseline; gap: 8px; margin-right: auto; }
-.brand h1 { font-family: var(--f-display); font-weight: 800; font-size: 26px; letter-spacing: -.02em; margin: 0; }
-.brand h1 span { color: var(--accent); }
-.brand small { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
-.res { display: flex; gap: 8px; flex-wrap: wrap; }
-.chip { display: grid; grid-template-columns: auto auto; column-gap: 8px; align-items: baseline; padding: 6px 12px; border-radius: var(--r-sm); background: var(--surface-2); min-width: 120px; animation: pop .5s ease-out; }
-.chip .lbl { grid-column: 1 / -1; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.chip .val { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 19px; font-weight: 600; }
-.chip .rate { white-space: nowrap; font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
-.chip.loc .val { color: var(--accent); } .chip.money .val { color: var(--money); } .chip.rep .val { color: var(--rep); }
-.chip.debt[data-sev="good"] .val { color: var(--accent); } .chip.debt[data-sev="warn"] .val { color: var(--warn); } .chip.debt[data-sev="bad"] .val { color: var(--danger); }
-@keyframes pop { from { transform: scale(.9); opacity: 0; } }
+/* ---------- window ---------- */
+.ide { height: 100%; max-width: 1500px; margin-inline: auto; display: grid; background: var(--win); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden;
+  grid-template-columns: 200px minmax(260px, .8fr) minmax(0, 1.35fr);
+  grid-template-rows: 42px minmax(0, 1fr) minmax(150px, 28%) 28px;
+  grid-template-areas: "title title title" "explorer write view" "explorer panel panel" "status status status"; }
+.titlebar { grid-area: title; display: flex; align-items: center; gap: 12px; padding: 0 10px 0 14px; border-bottom: 1px solid var(--line); background: var(--side); min-width: 0; }
+.dots { display: flex; gap: 6px; } .dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
+.wintitle { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wintitle b { font-family: var(--f-display); font-size: 16px; font-weight: 800; color: var(--fg); letter-spacing: -.01em; margin-right: 6px; }
+.wintitle b span { color: var(--accent); }
+.titlebar .spacer { flex: 1; }
+.runbtn { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; position: relative; overflow: hidden; white-space: nowrap; }
+.runbtn:not(:disabled) .fill { display: none; }
+.runbtn:disabled { background: var(--raise); color: var(--muted); cursor: not-allowed; }
+.runbtn .fill { position: absolute; inset: 0 auto 0 0; background: var(--accent-soft); width: 0; }
+.runbtn > span { position: relative; }
+.runbtn .meta { font-family: var(--f-mono); font-weight: 500; font-size: 11.5px; opacity: .85; }
+.runbtn:focus-visible { outline: 2px solid var(--fg); }
+.chipbtn { all: unset; cursor: pointer; font-family: var(--f-mono); font-size: 11.5px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.chipbtn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.chipbtn:focus-visible { outline: 2px solid var(--accent); }
 
-/* columns */
-.main { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
-.col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.box { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.fresh > .box { animation: reveal .6s ease-out; box-shadow: 0 0 0 3px var(--rep-soft), var(--shadow); }
-@keyframes reveal { from { transform: translateY(8px); opacity: 0; } }
-.box h2 { font-family: var(--f-display); font-weight: 600; font-size: 17px; margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.hint { font-size: 13px; color: var(--muted); margin: 0; }
-.kv { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: var(--muted); }
-.kv b { color: var(--fg); font-weight: 600; font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
-.pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; background: var(--surface-2); color: var(--muted); white-space: nowrap; font-family: var(--f-body); }
+/* ---------- explorer ---------- */
+.explorer { grid-area: explorer; background: var(--side); border-right: 1px solid var(--line); overflow-y: auto; padding: 8px 0; min-width: 0; }
+.ex-head { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 4px 14px 8px; }
+.folder { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); padding: 3px 14px; }
+.file { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 10px 4px 28px; font-family: var(--f-mono); font-size: 13px; color: var(--fg); }
+.file.fresh { animation: fileIn 1.6s ease-out; }
+.file:hover { background: var(--hover); }
+.file[aria-current="true"] { background: var(--accent-soft); color: var(--accent); }
+.file:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.file .ico { width: 14px; text-align: center; font-size: 10px; font-weight: 700; color: var(--code-kw); }
+.file .ico.md { color: var(--rep); }
+.file .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file .u { font-size: 11px; font-weight: 700; color: var(--accent); }
+.file .badge { font-size: 10.5px; font-weight: 700; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
+.file .badge.warn { background: var(--money); }
+.file .badge.dim { background: var(--raise); color: var(--muted); }
+.file.root { padding-left: 14px; }
+@keyframes fileIn { 0%, 40% { background: var(--accent-soft); } }
+
+/* ---------- editor tabs ---------- */
+.pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--pane); }
+.tabs { display: flex; align-items: stretch; height: 34px; background: var(--side); border-bottom: 1px solid var(--line); flex: none; overflow-x: auto; scrollbar-width: none; }
+.tab { display: flex; align-items: center; gap: 8px; padding: 0 14px; font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); border-right: 1px solid var(--line); white-space: nowrap; }
+.tab.active { background: var(--pane); color: var(--fg); box-shadow: inset 0 2px 0 var(--accent); }
+.tab .crumb { color: var(--faint); }
+
+/* ---------- app.ts ---------- */
+.write { grid-area: write; border-right: 1px solid var(--line); }
+.editor { all: unset; box-sizing: border-box; flex: 1; min-height: 0; display: flex; flex-direction: column; cursor: pointer; user-select: none; background: var(--code-bg); touch-action: manipulation; position: relative; }
+.editor:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.code { flex: 1; min-height: 120px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 0; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.65; color: var(--code-fg); }
+.code .line { white-space: pre; overflow: hidden; text-overflow: ellipsis; padding-right: 12px; }
+.code .line.new { animation: typein .18s ease-out; background: var(--hover); }
+.code .ln { color: var(--code-dim); display: inline-block; width: 4.2em; text-align: right; padding-right: 1.2em; }
+.code .kw { color: var(--code-kw); } .code .st { color: var(--code-str); } .code .cm { color: var(--code-cm); font-style: italic; } .code .fn { color: var(--code-fn); }
+@keyframes typein { from { opacity: 0; transform: translateX(-6px); } }
+.wfoot { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--pane); }
+.wfoot .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.wfoot strong { font-family: var(--f-display); font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
+.wfoot .val { font-family: var(--f-mono); color: var(--accent); font-weight: 600; }
+.wfoot .sub { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+.flowbar { height: 5px; border-radius: 5px; background: var(--raise); overflow: hidden; }
+.flowbar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--money)); transition: width .1s linear; }
+.floaty { position: fixed; pointer-events: none; font-family: var(--f-mono); font-weight: 700; color: var(--accent); animation: floatup .8s ease-out forwards; z-index: 50; }
+@keyframes floatup { to { transform: translateY(-40px); opacity: 0; } }
+.banner { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid var(--line); }
+.banner.bad { background: var(--danger-soft); color: var(--danger); }
+.banner.good { background: var(--money-soft); color: var(--money); }
+.banner .txt { flex: 1; min-width: 0; }
+.banner .txt b { display: block; }
+.banner .bar { height: 3px; margin-top: 4px; }
+
+/* ---------- open file view ---------- */
+.view { grid-area: view; }
+.vbody > * { flex-shrink: 0; }
+.vbody { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px 24px; display: flex; flex-direction: column; gap: 14px; }
+.vhead { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.vhead h2 { margin: 0; font-family: var(--f-display); font-weight: 800; font-size: 22px; letter-spacing: -.01em; text-wrap: balance; }
+.vhead p { margin: 2px 0 0; color: var(--muted); font-size: 13px; max-width: 60ch; }
+.cm-line { font-family: var(--f-mono); font-size: 12px; color: var(--code-cm); }
+.section-t { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; align-items: center; }
+.group { display: flex; gap: 4px; flex-wrap: wrap; }
+
+.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--raise); color: var(--muted); white-space: nowrap; font-family: var(--f-body); }
 .pill.good { background: var(--accent-soft); color: var(--accent); }
 .pill.money { background: var(--money-soft); color: var(--money); }
 .pill.rep { background: var(--rep-soft); color: var(--rep); }
 .pill.bad { background: var(--danger-soft); color: var(--danger); }
-.bar { height: 8px; border-radius: 8px; background: var(--surface-2); overflow: hidden; }
-.bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 8px; transition: width .15s linear; }
+.bar { height: 6px; border-radius: 6px; background: var(--raise); overflow: hidden; }
+.bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 6px; transition: width .15s linear; }
 .bar.money > div { background: var(--money); } .bar.rep > div { background: var(--rep); } .bar.bad > div { background: var(--danger); }
-.bar.thin { height: 4px; }
+.kv { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); }
+.kv b { color: var(--fg); font-weight: 600; font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
 
-/* buttons */
-.btn { all: unset; box-sizing: border-box; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 12px; border-radius: 10px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 14px; position: relative; overflow: hidden; user-select: none; }
-.btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 11px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; position: relative; overflow: hidden; user-select: none; white-space: nowrap; }
 .btn > span { position: relative; z-index: 1; }
-.btn .num { font-size: 13px; }
+.btn .num { font-size: 12px; }
 .btn .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent-soft); z-index: 0; }
 .btn:not(:disabled) .fill { display: none; }
-.btn.money { background: var(--money); }
-.btn.money .fill { background: var(--money-soft); }
+.btn.money { background: var(--money); } .btn.money .fill { background: var(--money-soft); }
+.btn.rep { background: var(--rep); color: #fff; } .btn.rep .fill { background: var(--rep-soft); }
 .btn.danger { background: var(--danger); color: #fff; }
-.btn:disabled, .btn.money:disabled, .btn.danger:disabled { background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
-.btn.ghost { background: transparent; border: 1.5px solid var(--line); color: var(--fg); }
-.btn.small { padding: 6px 10px; font-size: 13px; }
+.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--fg); }
+.btn:disabled, .btn.money:disabled, .btn.rep:disabled, .btn.danger:disabled { background: var(--raise); color: var(--muted); cursor: not-allowed; }
+.btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.btn.block { width: 100%; }
 
-/* editor */
-.editor { all: unset; box-sizing: border-box; display: flex; flex-direction: column; background: var(--editor-bg); color: var(--editor-fg); border-radius: var(--r); overflow: hidden; cursor: pointer; user-select: none; box-shadow: var(--shadow); touch-action: manipulation; }
-.editor:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.editor:active { transform: scale(.99); }
-.editor .tabbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: rgb(255 255 255 / .04); font-family: var(--f-mono); font-size: 12px; color: var(--editor-dim); }
-.editor .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--editor-dim); opacity: .5; }
-.editor .file { margin-left: 8px; color: var(--editor-fg); }
-.code { padding: 10px 12px; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.6; height: 150px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
-.code .line { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
-.code .line.new { animation: typein .2s ease-out; }
-.code .ln { color: var(--editor-dim); display: inline-block; width: 3.4em; }
-.code .kw { color: var(--editor-kw); } .code .st { color: var(--editor-str); } .code .cm { color: var(--editor-dim); }
-@keyframes typein { from { opacity: 0; transform: translateX(-6px); } }
-.editor .foot { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-top: 1px solid rgb(255 255 255 / .07); }
-.editor .foot .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.editor .foot strong { font-family: var(--f-display); font-size: 21px; font-weight: 800; }
-.editor .foot span { font-family: var(--f-mono); font-size: 12.5px; color: var(--editor-kw); }
-.flowbar { height: 5px; border-radius: 5px; background: rgb(255 255 255 / .08); overflow: hidden; }
-.flowbar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--editor-kw), var(--editor-str)); transition: width .1s linear; }
-.floaty { position: fixed; pointer-events: none; font-family: var(--f-mono); font-weight: 600; color: var(--accent); animation: floatup .8s ease-out forwards; z-index: 5; }
-@keyframes floatup { to { transform: translateY(-40px); opacity: 0; } }
+/* team table */
+.roles { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.role { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 14px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); }
+.role:first-child { border-top: 0; }
+.role.locked { background: var(--raise); color: var(--muted); }
+.role h3 { margin: 0; font-size: 14px; font-weight: 700; }
+.role .note { font-size: 12.5px; color: var(--muted); }
+.role .meta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.role .count { font-family: var(--f-display); font-weight: 800; font-size: 22px; color: var(--muted); min-width: 2ch; text-align: right; }
+.office { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 12px; border-radius: 10px; background: var(--raise); }
+.office .bar { grid-column: 1 / -1; }
 
-/* event cards */
-.event-bad { border: 1.5px solid var(--danger); background: var(--danger-soft); }
-.event-good { border: 1.5px dashed var(--money); background: var(--money-soft); }
-.event-bad h2, .event-good h2 { font-size: 16px; }
+/* cards (upgrades, perks, clients) */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px; }
+.card { border: 1px solid var(--line); border-radius: 10px; padding: 11px; display: flex; flex-direction: column; gap: 6px; background: var(--pane); min-width: 0; }
+.card .t { font-weight: 700; font-size: 14px; }
+.card .d { color: var(--muted); font-size: 12.5px; flex: 1; }
+.card .top { display: flex; justify-content: space-between; gap: 6px; align-items: flex-start; }
+.card.done { background: var(--raise); }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip { all: unset; cursor: pointer; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--fg); color: var(--pane); border-color: var(--fg); }
+.chip:focus-visible { outline: 2px solid var(--accent); }
+details.installed summary { cursor: pointer; font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+details.installed ul { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); columns: 2 220px; }
 
-/* slider */
-.slider { display: flex; flex-direction: column; gap: 6px; }
-.slider input { width: 100%; accent-color: var(--accent); }
-.slider .ends { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+/* feature tree */
+.tree { display: flex; flex-direction: column; gap: 10px; }
+.tier { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: start; }
+.tier .lbl { font-family: var(--f-mono); font-size: 11px; color: var(--faint); padding-top: 10px; }
+.nodes { display: flex; flex-wrap: wrap; gap: 8px; }
+.node { border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 10px; display: flex; flex-direction: column; gap: 5px; width: 220px; max-width: 100%; background: var(--pane); }
+.node .t { font-weight: 700; font-size: 13.5px; display: flex; justify-content: space-between; gap: 6px; }
+.node .d { font-size: 12px; color: var(--muted); }
+.node.done { border-color: var(--accent); background: var(--accent-soft); }
+.node.locked { border-style: dashed; opacity: .6; }
+.node.blocked { opacity: .45; text-decoration: line-through; }
+.fork { display: flex; align-items: stretch; gap: 6px; padding: 6px; border: 1.5px dashed var(--rep); border-radius: 12px; flex-wrap: wrap; }
+.fork .or { align-self: center; font-family: var(--f-mono); font-size: 11px; color: var(--rep); font-weight: 700; }
+.fork-h { font-size: 11px; font-weight: 700; color: var(--rep); letter-spacing: .04em; text-transform: uppercase; width: 100%; padding-left: 4px; }
 
-/* rows (contracts, staff) */
-.rows { display: flex; flex-direction: column; gap: 10px; }
-.row-card { border: 1px solid var(--line); border-radius: 12px; padding: 11px; display: flex; flex-direction: column; gap: 8px; background: var(--surface); }
-.row-card.locked { border-style: dashed; background: transparent; }
-.row-top { display: flex; gap: 10px; align-items: center; }
-.row-top h3 { margin: 0; font-size: 14.5px; font-weight: 700; }
-.row-top .sub { font-size: 12.5px; color: var(--muted); }
-.row-top .grow { flex: 1; min-width: 0; }
-.owned { font-family: var(--f-display); font-weight: 800; font-size: 22px; color: var(--muted); }
-.meta { display: flex; gap: 5px; flex-wrap: wrap; }
-.office { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--r-sm); background: var(--surface-2); font-size: 13.5px; }
-.office .bar { flex: 1 1 100px; }
+/* welcome */
+.welcome { display: flex; flex-direction: column; gap: 12px; max-width: 520px; }
+.welcome h2 { font-family: var(--f-display); font-size: 30px; font-weight: 800; margin: 0; letter-spacing: -.02em; }
+.welcome h2 span { color: var(--accent); }
+.welcome ol { margin: 0; padding-left: 20px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
 
-/* projects */
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr)); gap: 10px; }
-.tile { border: 1px solid var(--line); border-radius: 12px; padding: 11px; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
-.tile .t { font-weight: 700; font-size: 14px; }
-.tile .d { color: var(--muted); flex: 1; }
-
-/* log */
-.log { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; font-family: var(--f-mono); font-size: 12px; }
-.log div { display: grid; grid-template-columns: 3.6em 1fr; gap: 8px; color: var(--muted); }
+/* ---------- bottom panel ---------- */
+.panel { grid-area: panel; border-top: 1px solid var(--line); }
+.ptabs { display: flex; gap: 2px; padding: 0 8px; height: 32px; align-items: stretch; background: var(--pane); border-bottom: 1px solid var(--line); flex: none; }
+.ptab { all: unset; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 0 10px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ptab[aria-selected="true"] { color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
+.ptab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ptab .badge { font-size: 10px; padding: 1px 6px; border-radius: 9px; background: var(--raise); color: var(--muted); letter-spacing: 0; }
+.ptab .badge.warn { background: var(--money-soft); color: var(--money); }
+.ptab .badge.bad { background: var(--danger-soft); color: var(--danger); }
+.pbody { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 14px 12px; }
+.log { font-family: var(--f-mono); font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
+.log div { display: grid; grid-template-columns: 4.2em minmax(0, 1fr); gap: 8px; color: var(--muted); }
 .log div b { font-weight: 400; color: var(--fg); }
-.log .ship b { color: var(--accent); } .log .bad b { color: var(--danger); } .log .reveal b { color: var(--rep); }
+.log .ship b { color: var(--accent); } .log .bad b { color: var(--danger); } .log .reveal b { color: var(--rep); } .log .good b { color: var(--fg); }
+.log .prompt { color: var(--accent); }
+.problems { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 28px; align-items: start; }
+.problems .col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.problems input[type=range] { width: 100%; accent-color: var(--accent); }
+.problems .ends { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); }
+.problems .hint { font-size: 12.5px; color: var(--muted); margin: 0; }
 
-.footer { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
-.footer .group { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.seg { all: unset; cursor: pointer; padding: 4px 9px; border-radius: 7px; border: 1px solid var(--line); font-family: var(--f-mono); font-size: 12px; }
-.seg[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+/* ---------- status bar ---------- */
+.status { grid-area: status; display: flex; align-items: center; gap: 2px; background: var(--status); color: var(--on-status); font-family: var(--f-mono); font-size: 12px; padding: 0 6px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+.status .it { display: flex; align-items: center; gap: 5px; padding: 0 8px; height: 100%; }
+.status .it .k { opacity: .75; }
+.status .sp { flex: 1; }
+.status button { all: unset; cursor: pointer; padding: 0 7px; height: 100%; display: flex; align-items: center; }
+.status button[aria-pressed="true"] { background: rgb(255 255 255 / .2); }
+.status button:hover { background: rgb(255 255 255 / .12); }
+.status button:focus-visible { outline: 2px solid var(--on-status); outline-offset: -2px; }
+.status .warn { background: rgb(0 0 0 / .18); }
 
-.toasts { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; align-items: flex-end; z-index: 10; max-width: calc(100% - 32px); pointer-events: none; }
-.toast { background: var(--fg); color: var(--bg); padding: 9px 13px; border-radius: 11px; font-size: 13.5px; font-weight: 600; box-shadow: var(--shadow); animation: toastin .25s ease-out; }
-.toast.reveal { background: var(--rep); color: #fff; }
-.toast.bad { background: var(--danger); color: #fff; }
+/* ---------- notifications ---------- */
+.toasts { position: fixed; right: 28px; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; align-items: flex-end; z-index: 40; max-width: min(380px, calc(100% - 32px)); pointer-events: none; }
+.toast { background: var(--pane); color: var(--fg); border: 1px solid var(--line); border-left: 3px solid var(--accent); padding: 9px 12px; border-radius: 8px; font-size: 13px; box-shadow: var(--shadow); animation: toastin .25s ease-out; }
+.toast.reveal { border-left-color: var(--rep); }
+.toast.bad { border-left-color: var(--danger); }
 @keyframes toastin { from { transform: translateY(8px); opacity: 0; } }
 
-@media (max-width: 1100px) { .main { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .col.c3 { grid-column: 1 / -1; } }
-@media (max-width: 720px) { .main { grid-template-columns: minmax(0, 1fr); } .chip { min-width: 0; flex: 1 1 140px; grid-template-columns: auto; } .res { width: 100%; } }
+/* ---------- small screens: stack, explorer becomes a tab strip ---------- */
+@media (max-width: 900px) {
+  html, body { height: auto; }
+  .ide { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto;
+    grid-template-areas: "title" "status" "write" "explorer" "view" "panel"; }
+  .write { border-right: 0; }
+  .editor { min-height: 300px; }
+  .explorer { display: flex; gap: 4px; overflow-x: auto; padding: 6px; border-right: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .ex-head, .folder { display: none; }
+  .file, .file.root { width: auto; padding: 6px 10px; border-radius: 7px; white-space: nowrap; flex: none; }
+  .vbody { max-height: none; }
+  .panel { min-height: 220px; }
+  .status { flex-wrap: wrap; white-space: normal; padding: 4px 6px; }
+  .status .it, .status button { height: 24px; }
+  .problems { grid-template-columns: minmax(0, 1fr); }
+  .runbtn .meta { display: none; }
+  .titlebar { height: auto; flex-wrap: wrap; padding: 8px 10px; row-gap: 8px; }
+  .titlebar .spacer { display: none; }
+  .runbtn { flex: 1 1 100%; justify-content: center; }
+  .dots { display: none; }
+  .wintitle span.path { display: none; }
+}
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 
-<div class="wrap">
-  <header class="top">
-    <div class="brand"><h1>git <span>rich</span></h1><small id="ver"></small></div>
-    <div class="res" id="res"></div>
+<div class="ide" id="ide">
+  <header class="titlebar">
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="wintitle"><b>git <span>rich</span></b><span class="path">~/startup</span></div>
+    <div class="spacer"></div>
+    <span id="auto-wrap"></span>
+    <button class="runbtn" id="ship-btn" data-act="ship" title="Ship your unshipped code"><span class="fill" id="ship-fill"></span><span id="ship-lbl">▶ Ship</span><span class="meta" id="ship-meta"></span></button>
   </header>
 
-  <div class="main">
-    <div class="col c1">
-      <button class="editor" id="editor" data-act="click" aria-label="Write code">
-        <div class="tabbar"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="file">src/app.ts</span></div>
-        <div class="code" id="code"></div>
-        <div class="foot">
-          <div class="row"><strong>Write code</strong><span id="click-val"></span></div>
-          <div class="flowbar"><div id="flow-bar"></div></div>
-          <div class="row"><span id="flow-txt" style="color:var(--editor-dim)"></span><span id="click-hint" style="color:var(--editor-dim)"></span></div>
-        </div>
-      </button>
-      <div id="p-events" class="col"></div>
-      <div id="p-ship"></div>
-      <div id="p-debt"></div>
-    </div>
-    <div class="col c2">
-      <div id="p-contracts"></div>
-      <div id="p-team"></div>
-    </div>
-    <div class="col c3">
-      <div id="p-projects"></div>
-      <div id="p-market"></div>
-      <div id="p-exit"></div>
-      <div id="p-log"></div>
-    </div>
-  </div>
+  <nav class="explorer" id="explorer" aria-label="Files"></nav>
 
-  <div class="footer">
-    <span id="run-info"></span>
-    <div class="group">
-      <span>Demo speed</span>
-      <button class="seg" data-act="speed" data-arg="1" aria-pressed="true">×1</button>
-      <button class="seg" data-act="speed" data-arg="5" aria-pressed="false">×5</button>
-      <button class="seg" data-act="speed" data-arg="20" aria-pressed="false">×20</button>
-      <button class="seg" data-act="reset" id="reset-btn">Reset save</button>
+  <section class="pane write">
+    <div class="tabs"><div class="tab active"><span class="crumb">src /</span> app.ts</div></div>
+    <div id="banners"></div>
+    <button class="editor" id="editor" data-act="click" aria-label="Write code">
+      <div class="code" id="code"></div>
+    </button>
+    <div class="wfoot">
+      <div class="row"><strong>Write code</strong><span class="val" id="click-val"></span></div>
+      <div class="flowbar"><div id="flow-bar"></div></div>
+      <div class="row"><span class="sub" id="flow-txt"></span><span class="sub" id="flow-hint"></span></div>
     </div>
-  </div>
+  </section>
+
+  <section class="pane view">
+    <div class="tabs" id="view-tabs"></div>
+    <div class="vbody" id="view"></div>
+  </section>
+
+  <section class="pane panel">
+    <div class="ptabs" role="tablist" id="ptabs"></div>
+    <div class="pbody" id="pbody"></div>
+  </section>
+
+  <footer class="status" id="status"></footer>
 </div>
 <div class="toasts" id="toasts"></div>
 
@@ -228,72 +320,98 @@ const fmt = G.fmt;
 const money = (n) => '$' + fmt(n);
 const pct = (x) => Math.round(x * 100) + '%';
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const SAVE_KEY = 'gitrich-proto-v1';
+const SAVE_KEY = 'gitrich-proto-v3';
+const UI_KEY = 'gitrich-ui-v3';
 
 let S = load();
+let UI = loadUI();
 let speed = 1;
-let armed = { exit: 0, reset: 0 };
+const armed = { exit: 0, reset: 0 };
+let duckClicks = 0;
 
 function load() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return G.createState();
     const data = JSON.parse(raw);
-    const s = Object.assign(G.createState(), data.state);
+    const s = Object.assign(G.createState({ perks: data.state.perks }), data.state);
     s.events = [];
-    const away = Math.min(7200, Math.max(0, (Date.now() - data.savedAt) / 1000));
+    s.rev++;
+    const capH = s.perks.night ? 8 : 2;
+    const away = Math.min(capH * 3600, Math.max(0, (Date.now() - data.savedAt) / 1000));
     if (away > 30) {
       const m0 = s.money;
       for (let i = 0; i < away; i++) G.tick(s, 1, () => 0.999);
-      s.viral = null;
-      s.events = [];
-      G.__welcome = `While you were away (${Math.round(away / 60)} min) your team kept working: +${money(s.money - m0)}.`;
+      s.viral = null; s.events = [];
+      window.__welcome = `While you were away (${Math.round(away / 60)} min) your team kept working: +${money(s.money - m0)}.`;
     }
     return s;
   } catch (_) { return G.createState(); }
 }
 function save() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), state: Object.assign({}, S, { events: [] }) })); } catch (_) {}
+  try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (_) {}
+}
+function loadUI() {
+  const d = { file: null, opened: {}, ptab: 'terminal', buyAmt: 1, upCat: 'all' };
+  try { return Object.assign(d, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch (_) { return d; }
 }
 
-/* ---------- editor ---------- */
+/* ---------- app.ts ---------- */
 const SNIPPETS = [
   '<span class="kw">import</span> { idea } <span class="kw">from</span> <span class="st">"./shower-thoughts"</span>;',
-  '<span class="kw">const</span> app = createApp(idea);',
-  'app.use(coffee({ cups: <span class="st">3</span> }));',
-  '<span class="kw">if</span> (user.isHappy) ship(feature);',
-  '<span class="kw">await</span> deploy(<span class="st">"friday 17:59"</span>);',
-  '<span class="kw">function</span> handlePayment(order) {',
-  '  <span class="kw">return</span> stripe.charge(order.total);',
+  '<span class="kw">const</span> app = <span class="fn">createApp</span>(idea);',
+  'app.<span class="fn">use</span>(<span class="fn">coffee</span>({ cups: <span class="st">3</span> }));',
+  '<span class="kw">if</span> (user.isHappy) <span class="fn">ship</span>(feature);',
+  '<span class="kw">await</span> <span class="fn">deploy</span>(<span class="st">"friday 17:59"</span>);',
+  '<span class="kw">function</span> <span class="fn">handlePayment</span>(order) {',
+  '  <span class="kw">return</span> stripe.<span class="fn">charge</span>(order.total);',
   '}',
-  '<span class="kw">try</span> { db.migrate() } <span class="kw">catch</span> { pray() }',
+  '<span class="kw">try</span> { db.<span class="fn">migrate</span>() } <span class="kw">catch</span> { <span class="fn">pray</span>() }',
   '<span class="cm">// TODO: write tests (someday)</span>',
-  'router.get(<span class="st">"/pricing"</span>, showPlans);',
+  'router.<span class="fn">get</span>(<span class="st">"/pricing"</span>, showPlans);',
   '<span class="kw">export default</span> app;',
   '<span class="cm">// fix: fix the fix</span>',
-  'cache.set(key, value, { ttl: <span class="st">60</span> });',
-  '<span class="kw">const</span> users = <span class="kw">await</span> db.users.findAll();',
-  'logger.info(<span class="st">"it works on my machine"</span>);',
+  'cache.<span class="fn">set</span>(key, value, { ttl: <span class="st">60</span> });',
+  '<span class="kw">const</span> users = <span class="kw">await</span> db.users.<span class="fn">findAll</span>();',
+  'logger.<span class="fn">info</span>(<span class="st">"works on my machine"</span>);',
+  '<span class="kw">const</span> { data } = <span class="kw">await</span> api.<span class="fn">get</span>(<span class="st">"/v2/me"</span>);',
+  '<span class="cm">// HACK: remove before launch</span>',
+  'queue.<span class="fn">retry</span>(job, { attempts: <span class="st">5</span> });',
+  '<span class="kw">if</span> (!flags.<span class="fn">enabled</span>(<span class="st">"dark-mode"</span>)) <span class="kw">return</span>;',
 ];
 let lineNo = 1, snip = 0;
-const codeEl = $('#code');
 const lines = [];
 function pushLine() {
   lines.push(`<span class="ln">${lineNo++}</span>${SNIPPETS[snip++ % SNIPPETS.length]}`);
-  if (lines.length > 7) lines.shift();
-  codeEl.innerHTML = lines.map((l, i) => `<div class="line${i === lines.length - 1 ? ' new' : ''}">${l}</div>`).join('');
+  if (lines.length > 14) lines.shift();
+  $('#code').innerHTML = lines.map((l, i) => `<div class="line${i === lines.length - 1 ? ' new' : ''}">${l}</div>`).join('');
 }
 pushLine();
 
-/* ---------- toasts ---------- */
+/* ---------- notifications ---------- */
 function toast(text, kind) {
   const t = document.createElement('div');
   t.className = 'toast ' + (kind || '');
   t.textContent = text;
   $('#toasts').appendChild(t);
-  setTimeout(() => t.remove(), kind === 'reveal' ? 5000 : 3000);
+  setTimeout(() => t.remove(), kind === 'reveal' ? 5000 : 3200);
   while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
 }
+
+/* ---------- files ---------- */
+const canHireAny = () => G.ROLES.some((d) => G.roleUnlocked(S, d) && G.headcount(S) < G.seats(S) && S.money >= G.staffCost(S, d.id));
+const FILES = [
+  { id: 'team', folder: 'company', name: 'team.ts', show: () => S.revealed.team, badge: () => (canHireAny() ? ['•', ''] : null) },
+  { id: 'upgrades', folder: 'company', name: 'upgrades.ts', show: () => S.revealed.upgrades, badge: () => { const n = G.UPGRADES.filter((u) => G.upgradeVisible(S, u) && G.canAfford(S, u.cost)).length; return n ? [n, ''] : null; } },
+  { id: 'features', folder: 'product', name: 'features.ts', show: () => S.revealed.product, badge: () => { const n = G.FEATURES.filter((f) => G.featureState(S, f) === 'open' && S.loc >= G.featureCost(S, f)).length; return n ? [n, ''] : null; } },
+  { id: 'market', folder: 'product', name: 'market.ts', show: () => S.revealed.markets, badge: () => { const k = G.MARKETS[S.market + 1]; return k && S.money >= G.marketCost(S) && S.rep >= k.rep ? ['!', 'warn'] : null; } },
+  { id: 'clients', folder: 'business', name: 'clients.ts', show: () => S.revealed.contracts, badge: () => { const n = S.contracts.filter((c) => G.contractOk(S, c)).length; return n ? [n, 'warn'] : S.contracts.length ? [S.contracts.length, 'dim'] : null; } },
+  { id: 'exit', folder: 'business', name: 'exit.ts', show: () => S.revealed.exit, badge: () => (G.valuation(S) >= G.EXIT_VALUATION ? ['$', 'warn'] : null) },
+  { id: 'perks', folder: 'founder', name: 'perks.ts', show: () => S.revealed.founder, badge: () => { const n = G.PERKS.filter((p) => !S.perks[p.id] && S.fp >= p.cost).length; return n ? [n, ''] : null; } },
+  { id: 'achievements', folder: '', name: 'ACHIEVEMENTS.md', md: true, show: () => S.revealed.achievements, badge: () => [`${Object.keys(S.ach).length}/${G.ACHIEVEMENTS.length}`, 'dim'] },
+];
+const visibleFiles = () => FILES.filter((f) => f.show());
 
 /* ---------- actions ---------- */
 function act(el, e) {
@@ -306,33 +424,40 @@ function act(el, e) {
       f.className = 'floaty'; f.textContent = '+' + fmt(v);
       const r = el.getBoundingClientRect();
       f.style.left = ((e && e.clientX) || r.left + r.width / 2) + 'px';
-      f.style.top = (((e && e.clientY) || r.top + 80) - 20) + 'px';
+      f.style.top = (((e && e.clientY) || r.top + r.height / 2) - 20) + 'px';
       document.body.appendChild(f); setTimeout(() => f.remove(), 800);
       break;
     }
     case 'ship': G.ship(S, Math.random); break;
     case 'hotfix': G.hotfix(S); break;
     case 'viral': G.claimViral(S); break;
+    case 'open': UI.file = arg; UI.opened[arg] = true; break;
+    case 'ptab': UI.ptab = arg; break;
     case 'deliver': G.deliver(S, Number(arg)); break;
-    case 'hire': G.buyStaff(S, arg); break;
+    case 'hire': G.hire(S, arg, UI.buyAmt); break;
+    case 'amt': UI.buyAmt = arg === 'max' ? 'max' : Number(arg); break;
     case 'office': G.moveOffice(S); break;
     case 'market': G.buyMarket(S); break;
-    case 'project': G.buyProject(S, arg); break;
+    case 'upgrade': G.buyUpgrade(S, arg); break;
+    case 'upcat': UI.upCat = arg; break;
+    case 'feature': G.buyFeature(S, arg); break;
+    case 'perk': G.buyPerk(S, arg); break;
     case 'autoship': S.autoShip = !S.autoShip; break;
+    case 'autohire': S.autoHire = !S.autoHire; break;
+    case 'duck': if (++duckClicks >= 10 && !S.flags.duck) { S.flags.duck = true; toast('🦆 Quack. You explained the bug and found it yourself.', 'reveal'); } break;
     case 'exit':
-      if (Date.now() - armed.exit < 4000) { const n = G.exit(S); if (n) { S = n; armed.exit = 0; save(); } }
+      if (Date.now() - armed.exit < 4000) { const n = G.exit(S); if (n) { S = n; armed.exit = 0; UI.file = 'perks'; UI.opened.perks = true; save(); } }
       else armed.exit = Date.now();
       break;
     case 'reset':
-      if (Date.now() - armed.reset < 4000) { try { localStorage.removeItem(SAVE_KEY); } catch (_) {} S = G.createState(); armed.reset = 0; lines.length = 0; lineNo = 1; pushLine(); }
-      else armed.reset = Date.now();
+      if (Date.now() - armed.reset < 4000) {
+        try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(UI_KEY); } catch (_) {}
+        S = G.createState(); UI = loadUI(); UI.file = null; UI.opened = {}; armed.reset = 0; lines.length = 0; lineNo = 1; pushLine();
+      } else armed.reset = Date.now();
       break;
-    case 'speed':
-      speed = Number(arg);
-      document.querySelectorAll('[data-act="speed"]').forEach((b) => b.setAttribute('aria-pressed', b === el));
-      break;
+    case 'speed': speed = Number(arg); break;
   }
-  render(true);
+  render();
 }
 // pointerdown so rapid clicks never get lost when a panel re-renders; click (detail 0) for keyboard
 document.addEventListener('pointerdown', (e) => {
@@ -352,220 +477,270 @@ document.addEventListener('input', (e) => {
   if (e.target.id === 'autodebt') S.autoShipDebt = Number(e.target.value) / 100;
 });
 
-/* ---------- panels (re-rendered only when their key changes) ---------- */
+/* ---------- keyed rendering ---------- */
 const keys = {};
-function panel(id, key, html) {
-  if (keys[id] === key) return;
-  const el = document.getElementById(id);
-  const wasHidden = keys[id] === undefined || keys[id] === 'hidden';
+function region(id, key, html) {
+  if (keys[id] === key) return false;
   keys[id] = key;
-  el.innerHTML = html();
-  // highlight a panel only the moment it first appears
-  if (wasHidden && key !== 'hidden' && id.startsWith('p-') && id !== 'p-log' && S.t > 1) {
-    el.classList.add('fresh');
-    setTimeout(() => el.classList.remove('fresh'), 2500);
-  }
+  document.getElementById(id).innerHTML = html();
+  return true;
 }
 const sev = (d) => (d < 0.1 ? 'good' : d < 0.25 ? 'warn' : 'bad');
+const fillPct = (have, need) => Math.min(100, (have / need) * 100) + '%';
+const costLabel = (c) => (c.money ? money(c.money) : fmt(c.loc) + ' LoC');
+const costHave = (c) => (c.money ? S.money / c.money : S.loc / c.loc);
 
-function renderResources() {
-  const R = G.rates(S);
-  const chips = [['loc', 'Unshipped code', 'r-loc', 'r-loc-rate']];
-  if (S.revealed.money) chips.push(['money', 'Money', 'r-money', 'r-mrr']);
-  if (S.revealed.rep) chips.push(['rep', 'Reputation', 'r-rep', null]);
-  if (S.revealed.debt) chips.push(['debt', 'Tech debt', 'r-debt', 'r-quality']);
-  if (S.xp) chips.push(['xp', 'Experience', 'r-xp', null]);
-  panel('res', chips.map((c) => c[0]).join(), () => chips.map(([k, l, v, r]) => `<div class="chip ${k}" id="chip-${k}"><span class="lbl">${l}</span><span class="val" id="${v}"></span>${r ? `<span class="rate" id="${r}"></span>` : ''}</div>`).join(''));
-  $('#r-loc').textContent = fmt(S.loc);
-  $('#r-loc-rate').textContent = R.feature ? '+' + fmt(R.feature) + '/s' : '';
-  if ($('#r-money')) { $('#r-money').textContent = money(S.money); $('#r-mrr').textContent = S.revealed.ship ? '+' + money(G.mrr(S)) + '/s' : ''; }
-  if ($('#r-rep')) $('#r-rep').textContent = fmt(S.rep);
-  if ($('#r-debt')) { const d = G.debtPct(S); $('#r-debt').textContent = pct(d); $('#chip-debt').dataset.sev = sev(d); $('#r-quality').textContent = 'income ×' + G.quality(S).toFixed(2); }
-  if ($('#r-xp')) $('#r-xp').textContent = S.xp + ' XP';
-  $('#ver').textContent = `main · ${G.versionStr(S)}`;
+function renderTitle() {
+  const b = $('#ship-btn');
+  b.hidden = !S.revealed.ship;
+  if (!S.revealed.ship) return;
+  b.disabled = !G.canShip(S);
+  const nv = S.version[1] === 9 ? `v${S.version[0] + 1}.0` : `v${S.version[0]}.${S.version[1] + 1}`;
+  if (S.deployLeft > 0) { $('#ship-lbl').textContent = 'Deploying…'; $('#ship-meta').textContent = Math.ceil(S.deployLeft) + 's'; $('#ship-fill').style.width = (1 - S.deployLeft / G.deployTime(S)) * 100 + '%'; }
+  else if (S.loc < G.MIN_SHIP) { $('#ship-lbl').textContent = `▶ Ship ${nv}`; $('#ship-meta').textContent = `need ${G.MIN_SHIP} LoC`; $('#ship-fill').style.width = fillPct(S.loc, G.MIN_SHIP); }
+  else { $('#ship-lbl').textContent = `▶ Ship ${nv}`; $('#ship-meta').textContent = `+${money(G.shipGain(S))}/s · +${fmt(G.shipRep(S))} Rep · ${pct(G.incidentChance(S))} risk`; }
+  const auto = G.mods(S).autoShip;
+  region('auto-wrap', `a|${auto}|${S.autoShip}`, () => auto ? `<button class="chipbtn" data-act="autoship" aria-pressed="${S.autoShip}" title="Auto-ship while debt is under your limit">auto-ship ${S.autoShip ? 'on' : 'off'}</button>` : '');
 }
 
-function renderEditor() {
+const shownFiles = new Set();
+let explorerInit = false;
+function renderExplorer() {
+  const files = visibleFiles();
+  const key = files.map((f) => { const b = f.badge(); return f.id + (UI.file === f.id ? '*' : '') + (UI.opened[f.id] ? '' : 'U') + (b ? b.join('') : ''); }).join(',');
+  region('explorer', key, () => {
+    let html = '<div class="ex-head">Explorer</div><div class="folder">▾ startup</div><button class="file" style="padding-left:28px" tabindex="-1" aria-hidden="true"><span class="ico">TS</span><span class="name">app.ts</span></button>';
+    let folder = null;
+    for (const f of files) {
+      if (f.folder !== folder) { folder = f.folder; if (folder) html += `<div class="folder" style="padding-left:28px">▾ ${folder}</div>`; }
+      const b = f.badge();
+      const fresh = explorerInit && !shownFiles.has(f.id);
+      html += `<button class="file ${f.folder ? '' : 'root'} ${fresh ? 'fresh' : ''}" style="${f.folder ? 'padding-left:42px' : 'padding-left:28px'}" data-act="open" data-arg="${f.id}" aria-current="${UI.file === f.id}">
+        <span class="ico ${f.md ? 'md' : ''}">${f.md ? 'MD' : 'TS'}</span><span class="name">${f.name}</span>
+        ${!UI.opened[f.id] ? '<span class="u" title="New">U</span>' : b ? `<span class="badge ${b[1]}">${b[0]}</span>` : ''}</button>`;
+    }
+    for (const f of files) shownFiles.add(f.id);
+    explorerInit = true;
+    return html;
+  });
+}
+
+function renderWrite() {
   $('#click-val').textContent = '+' + fmt(G.clickValue(S)) + ' LoC';
   $('#flow-bar').style.width = S.flow + '%';
-  $('#flow-txt').textContent = `Flow ×${G.flowMult(S).toFixed(2)}`;
-  $('#click-hint').textContent = S.flow < 20 ? 'click steadily to build flow' : S.flow > 95 ? 'in the zone' : '';
-}
-
-function renderEvents() {
+  $('#flow-txt').textContent = `flow ×${G.flowMult(S).toFixed(2)}`;
+  $('#flow-hint').textContent = S.flow < 20 ? 'click steadily to build flow' : S.flow > 95 ? 'in the zone' : '';
   const inc = S.incident, vir = S.viral;
-  panel('p-events', `${!!inc}|${!!vir}`, () => `
-    ${inc ? `<div class="box event-bad"><h2>Incident in production <span class="pill bad">Income ×0.5</span></h2>
-      <p class="hint" id="inc-why"></p>
-      <div class="bar thin bad"><div id="inc-bar"></div></div>
-      <button class="btn danger" data-act="hotfix"><span>Hotfix</span><span class="num" id="inc-left"></span></button></div>` : ''}
-    ${vir ? `<div class="box event-good"><h2>Your app is trending! <span class="pill money">Event</span></h2>
-      <p class="hint">Claim it for Income ×2 for 30 s and a Reputation boost.</p>
-      <div class="bar thin money"><div id="vir-bar"></div></div>
-      <button class="btn money" data-act="viral"><span>Ride the wave</span><span class="num" id="vir-left"></span></button></div>` : ''}`);
-  if (inc) {
-    $('#inc-why').textContent = `${inc.why} Click Hotfix ${inc.left} more times${S.done.monitor ? ', or wait for monitoring to fix it' : ', or wait for it to fade'}.`;
-    $('#inc-left').textContent = `${inc.left} left`;
-    $('#inc-bar').style.width = (100 - inc.t / (S.done.monitor ? 20 : 60) * 100) + '%';
+  region('banners', `${!!inc}|${!!vir}`, () => `
+    ${inc ? `<div class="banner bad"><div class="txt"><b>Incident in production: income ×0.5</b><span id="inc-why"></span><div class="bar bad"><div id="inc-bar"></div></div></div><button class="btn danger" data-act="hotfix"><span>Hotfix</span><span class="num" id="inc-left"></span></button></div>` : ''}
+    ${vir ? `<div class="banner good"><div class="txt"><b>Your app is trending!</b>Income ×${G.mods(S).viralBoost} for 30 s and a Reputation boost.<div class="bar money"><div id="vir-bar"></div></div></div><button class="btn money" data-act="viral"><span>Ride the wave</span><span class="num" id="vir-left"></span></button></div>` : ''}`);
+  if (inc) { $('#inc-why').textContent = inc.why; $('#inc-left').textContent = inc.left + '×'; $('#inc-bar').style.width = (100 - inc.t / G.mods(S).incDur * 100) + '%'; }
+  if (vir) { const l = Math.max(0, vir.until - S.t); $('#vir-left').textContent = Math.ceil(l) + 's'; $('#vir-bar').style.width = l / 12 * 100 + '%'; }
+}
+
+/* ---------- file views ---------- */
+const VIEWS = {
+  welcome: {
+    key: () => 'w',
+    html: () => `<div class="welcome"><div class="cm-line">// README.md</div><h2>git <span>rich</span></h2>
+      <p>You have an idea, a laptop and a garage. Turn it into a software company.</p>
+      <ol><li>Click <b>app.ts</b> on the left to write code.</li><li>New files appear in the explorer as your company grows. A green <b>U</b> means you have not opened it yet.</li>
+      <li>The <b>▶ Ship</b> button at the top turns code into income. Watch <b>Problems</b> below for tech debt.</li></ol></div>`,
+  },
+  team: {
+    key: () => ['t', S.office, G.headcount(S), UI.buyAmt, S.autoHire, G.ROLES.map((d) => d.id + S.staff[d.id] + G.roleUnlocked(S, d) + (G.bulk(S, d.id, UI.buyAmt).n > 0 && G.bulk(S, d.id, UI.buyAmt).total <= S.money)).join(''), S.money >= G.officeCost(S) && S.rep >= (G.OFFICES[S.office + 1] || { rep: 0 }).rep].join('|'),
+    html: () => {
+      const nx = G.OFFICES[S.office + 1];
+      const full = G.headcount(S) >= G.seats(S);
+      const row = (d) => {
+        if (!G.roleUnlocked(S, d)) return `<div class="role locked"><div><h3>${d.name}</h3><div class="note">${d.needs ? 'Needs the Machine Learning upgrade' : `Unlocks at ${fmt(d.rep)} Reputation`}</div></div><span></span><span class="pill rep">${d.needs ? 'locked' : fmt(S.rep) + ' / ' + fmt(d.rep)}</span></div>`;
+        const b = G.bulk(S, d.id, UI.buyAmt);
+        const n = b.n || 1, total = b.n ? b.total : G.staffCost(S, d.id);
+        const ok = b.n > 0 && b.total <= S.money;
+        const meta = G.isSupport(d) ? '' : `<div class="meta"><span class="pill good">${fmt(d.out * G.mods(S).out[d.id])} LoC/s</span><span class="pill ${G.staffBug(S, d) >= 0.3 ? 'bad' : G.staffBug(S, d) >= 0.1 ? 'money' : 'good'}">${pct(G.staffBug(S, d))} bugs</span></div>`;
+        return `<div class="role"><div><h3>${d.name}</h3><div class="note">${d.note}</div>${meta}</div><span class="count num">${S.staff[d.id]}</span>
+          <button class="btn" data-act="hire" data-arg="${d.id}" ${ok ? '' : 'disabled'}><span class="fill" data-fill="hire:${d.id}"></span><span>Hire${n > 1 ? ' ' + n : ''}</span><span class="num">${full ? 'no seats' : money(total)}</span></button></div>`;
+      };
+      const shownEng = []; for (const d of G.ENGINEERS) { shownEng.push(d); if (!G.roleUnlocked(S, d) && !d.needs) break; }
+      const shownSup = []; for (const d of G.SUPPORT) { shownSup.push(d); if (!G.roleUnlocked(S, d)) break; }
+      return `<div class="vhead"><div><div class="cm-line">// company/team.ts</div><h2>Team</h2><p>Engineers write code. Support roles write none, but each one bends a rule. Everyone needs a seat.</p></div>
+        <div class="chips">${[1, 10, 'max'].map((a) => `<button class="chip" data-act="amt" data-arg="${a}" aria-pressed="${UI.buyAmt === a}">${a === 'max' ? 'Max' : '×' + a}</button>`).join('')}
+        ${S.perks.autohire ? `<button class="chip" data-act="autohire" aria-pressed="${S.autoHire}">Auto-hire ${S.autoHire ? 'on' : 'off'}</button>` : ''}</div></div>
+        <div class="office"><div><b>${G.OFFICES[S.office].name}</b> <span class="num" style="color:var(--muted)">${G.headcount(S)} / ${G.seats(S)} seats</span></div>
+          ${nx ? `<button class="btn ${full ? 'money' : 'ghost'}" data-act="office" ${S.money >= G.officeCost(S) && S.rep >= nx.rep ? '' : 'disabled'}><span class="fill" data-fill="office"></span><span>Move to ${nx.name} · ${Math.floor(nx.seats * G.mods(S).seats)} seats</span><span class="num">${S.rep < nx.rep ? 'needs ' + fmt(nx.rep) + ' Rep' : money(G.officeCost(S))}</span></button>` : '<span class="pill good">Biggest office</span>'}
+          <div class="bar ${full ? 'money' : ''}"><div style="width:${G.headcount(S) / G.seats(S) * 100}%"></div></div></div>
+        <div class="section-t"><span>Engineering</span><span class="num">${G.ENGINEERS.reduce((a, d) => a + S.staff[d.id], 0)} people</span></div>
+        <div class="roles">${shownEng.map(row).join('')}</div>
+        ${S.rep >= 20 || G.SUPPORT.some((d) => S.staff[d.id]) ? `<div class="section-t"><span>Support</span><span class="num">${G.SUPPORT.reduce((a, d) => a + S.staff[d.id], 0)} people</span></div><div class="roles">${shownSup.map(row).join('')}</div>` : ''}`;
+    },
+    live: () => {
+      for (const d of G.ROLES) { const f = document.querySelector(`[data-fill="hire:${d.id}"]`); if (f) f.style.width = fillPct(S.money, G.staffCost(S, d.id)); }
+      const f = document.querySelector('[data-fill="office"]'); if (f) f.style.width = fillPct(S.money, G.officeCost(S));
+    },
+  },
+  upgrades: {
+    key: () => { const v = G.UPGRADES.filter((u) => G.upgradeVisible(S, u)); return ['u', UI.upCat, Object.keys(S.done).length, v.map((u) => u.id + G.canAfford(S, u.cost)).join(',')].join('|'); },
+    html: () => {
+      const cats = [['all', 'All'], ['roles', 'Roles'], ['tools', 'Tools'], ['process', 'Process'], ['people', 'People'], ['growth', 'Growth'], ['clients', 'Clients']];
+      const vis = G.UPGRADES.filter((u) => G.upgradeVisible(S, u) && (UI.upCat === 'all' || u.cat === UI.upCat)).sort((a, b) => costHave(b.cost) - costHave(a.cost));
+      const owned = G.UPGRADES.filter((u) => S.done[u.id]);
+      const count = (c) => G.UPGRADES.filter((u) => G.upgradeVisible(S, u) && (c === 'all' || u.cat === c)).length;
+      return `<div class="vhead"><div><div class="cm-line">// company/upgrades.ts</div><h2>Upgrades</h2><p>One-time purchases that change a rule. New ones appear as you hit milestones. Process upgrades are paid in code.</p></div>
+        <span class="pill good">${owned.length} / ${G.UPGRADES.length} installed</span></div>
+        <div class="chips">${cats.filter(([c]) => c === 'all' || count(c)).map(([c, l]) => `<button class="chip" data-act="upcat" data-arg="${c}" aria-pressed="${UI.upCat === c}">${l} ${count(c) ? `<span class="num">${count(c)}</span>` : ''}</button>`).join('')}</div>
+        ${vis.length ? `<div class="cards">${vis.map((u) => `<div class="card"><div class="top"><span class="t">${u.name}</span><span class="pill">${u.cat}</span></div><span class="d">${u.desc}</span>
+          <button class="btn ${u.cost.money ? 'money' : ''}" data-act="upgrade" data-arg="${u.id}" ${G.canAfford(S, u.cost) ? '' : 'disabled'}><span class="fill" data-fill="up:${u.id}"></span><span>Install</span><span class="num">${costLabel(u.cost)}</span></button></div>`).join('')}</div>`
+          : '<p class="cm-line">// nothing new here yet. Keep growing.</p>'}
+        ${owned.length ? `<details class="installed"><summary>Installed (${owned.length})</summary><ul>${owned.map((u) => `<li><b>${u.name}</b>: ${u.desc}</li>`).join('')}</ul></details>` : ''}`;
+    },
+    live: () => { for (const u of G.UPGRADES) { const f = document.querySelector(`[data-fill="up:${u.id}"]`); if (f) f.style.width = Math.min(100, costHave(u.cost) * 100) + '%'; } },
+  },
+  features: {
+    key: () => ['f', G.FEATURES.map((f) => f.id + G.featureState(S, f) + (S.loc >= G.featureCost(S, f))).join(',')].join('|'),
+    html: () => {
+      const tiers = [...new Set(G.FEATURES.map((f) => f.tier))];
+      const node = (f) => {
+        const st = G.featureState(S, f);
+        const c = G.featureCost(S, f);
+        return `<div class="node ${st}"><span class="t">${f.name}${st === 'done' ? '<span class="pill good">built</span>' : ''}</span><span class="d">${f.desc}</span>
+          ${st === 'open' ? `<button class="btn" data-act="feature" data-arg="${f.id}" ${S.loc >= c ? '' : 'disabled'}><span class="fill" data-fill="feat:${f.id}"></span><span>Build</span><span class="num">${fmt(c)} LoC</span></button>`
+          : st === 'locked' ? `<span class="cm-line">needs ${f.req.map((r) => G.FEATURES.find((x) => x.id === r).name).join(' + ')}</span>` : st === 'blocked' ? '<span class="cm-line">not chosen this company</span>' : ''}</div>`;
+      };
+      return `<div class="vhead"><div><div class="cm-line">// product/features.ts</div><h2>Product features</h2><p>Spend unshipped code to grow your product. Dashed purple boxes are strategy choices: pick one per company.</p></div>
+        <span class="pill good">${Object.keys(S.features).length} / ${G.FEATURES.length} built</span></div>
+        <div class="tree">${tiers.map((t) => {
+          const fs = G.FEATURES.filter((f) => f.tier === t);
+          const forks = [...new Set(fs.filter((f) => f.fork).map((f) => f.fork))];
+          return `<div class="tier"><span class="lbl">tier ${t}</span><div class="nodes">${fs.filter((f) => !f.fork).map(node).join('')}
+            ${forks.map((k) => { const pair = fs.filter((f) => f.fork === k); return `<div class="fork"><span class="fork-h">Choose your ${k}</span>${node(pair[0])}<span class="or">or</span>${node(pair[1])}</div>`; }).join('')}</div></div>`;
+        }).join('')}</div>`;
+    },
+    live: () => { for (const f of G.FEATURES) { const el = document.querySelector(`[data-fill="feat:${f.id}"]`); if (el) el.style.width = fillPct(S.loc, G.featureCost(S, f)); } },
+  },
+  market: {
+    key: () => { const k = G.MARKETS[S.market + 1]; return ['m', S.market, k && S.money >= G.marketCost(S) && S.rep >= k.rep].join('|'); },
+    html: () => {
+      const k = G.MARKETS[S.market + 1];
+      return `<div class="vhead"><div><div class="cm-line">// product/market.ts</div><h2>${G.MARKETS[S.market].name} market</h2><p>Each market can only pay so much. When it is nearly full, releases add little: expand, grow the market with upgrades, or take client work.</p></div></div>
+        <div class="card"><div class="kv"><span>Market filled</span><b id="mk-sat"></b></div><div class="bar money"><div id="mk-bar"></div></div>
+          <div class="kv"><span>Market size</span><b id="mk-cap"></b></div><div class="kv"><span>Your product income</span><b id="mk-mrr"></b></div></div>
+        ${k ? `<div class="card"><span class="t">Next: ${k.name}</span><span class="d">Market size ${money(k.cap * G.mods(S).cap)}/s. Your current income carries over.</span>
+          <button class="btn money" data-act="market" ${S.money >= G.marketCost(S) && S.rep >= k.rep ? '' : 'disabled'}><span class="fill" data-fill="mk"></span><span>Launch ${k.name}</span><span class="num">${S.rep < k.rep ? 'needs ' + fmt(k.rep) + ' Rep' : money(G.marketCost(S))}</span></button></div>` : ''}
+        <div class="section-t"><span>Markets</span></div>
+        <div class="roles">${G.MARKETS.map((x, i) => `<div class="role ${i > S.market ? 'locked' : ''}"><div><h3>${x.name}</h3><div class="note">size ${money(x.cap)}/s base</div></div><span></span><span class="pill ${i < S.market ? '' : i === S.market ? 'good' : ''}">${i < S.market ? 'done' : i === S.market ? 'current' : fmt(x.rep) + ' Rep'}</span></div>`).join('')}</div>`;
+    },
+    live: () => {
+      $('#mk-sat').textContent = pct(G.saturation(S)); $('#mk-bar').style.width = G.saturation(S) * 100 + '%';
+      $('#mk-cap').textContent = money(G.cap(S)) + '/s'; $('#mk-mrr').textContent = money(G.mrr(S)) + '/s';
+      const f = document.querySelector('[data-fill="mk"]'); if (f) f.style.width = fillPct(S.money, G.marketCost(S));
+    },
+  },
+  clients: {
+    key: () => 'c|' + S.contracts.map((c) => c.id + ':' + G.contractOk(S, c)).join(','),
+    html: () => `<div class="vhead"><div><div class="cm-line">// business/clients.ts</div><h2>Client work</h2><p>Clients pay once, right away. Your own product pays a little every second, forever. Both use the same unshipped code.</p></div>
+      <span class="pill money">${S.contracts.length} / ${G.mods(S).slots} offers</span></div>
+      ${S.contracts.length ? `<div class="cards">${S.contracts.map((c) => `<div class="card"><div class="top"><span class="t">${esc(c.job[0].toUpperCase() + c.job.slice(1))}</span></div><span class="d">${esc(c.client)}</span>
+        <div class="chips"><span class="pill">${fmt(c.size)} LoC</span><span class="pill money">${money(c.pay)}</span><span class="pill rep">+${c.rep} Rep</span>${c.maxDebt != null ? `<span class="pill ${G.debtPct(S) <= c.maxDebt ? 'good' : 'bad'}">debt ≤ ${pct(c.maxDebt)}</span>` : ''}</div>
+        <div class="bar"><div data-exp="${c.id}"></div></div>
+        <button class="btn money" data-act="deliver" data-arg="${c.id}" ${G.contractOk(S, c) ? '' : 'disabled'}><span class="fill" data-fill="c:${c.id}"></span><span>Deliver</span><span class="num">${G.contractOk(S, c) ? '+' + money(c.pay) : c.maxDebt != null && G.debtPct(S) > c.maxDebt ? 'too much debt' : 'need ' + fmt(c.size) + ' LoC'}</span></button></div>`).join('')}</div>`
+        : '<p class="cm-line">// no offers right now. New clients call every ~20 s.</p>'}`,
+    live: () => { for (const c of S.contracts) { const e = document.querySelector(`[data-exp="${c.id}"]`); if (e) e.style.width = Math.max(0, (c.expires - S.t) / c.life * 100) + '%'; const f = document.querySelector(`[data-fill="c:${c.id}"]`); if (f) f.style.width = fillPct(S.loc, c.size); } },
+  },
+  exit: {
+    key: () => `x|${G.valuation(S) >= G.EXIT_VALUATION}|${Date.now() - armed.exit < 4000}`,
+    html: () => {
+      const ok = G.valuation(S) >= G.EXIT_VALUATION, isArmed = Date.now() - armed.exit < 4000;
+      return `<div class="vhead"><div><div class="cm-line">// business/exit.ts</div><h2>Sell the company</h2><p>Valuation is your product income × 500. Selling starts a new company from zero and gives Founder Points: spend them on permanent perks, or keep them for +10% everything each.</p></div></div>
+        <div class="card"><div class="kv"><span>Valuation</span><b id="ex-val"></b></div><div class="bar rep"><div id="ex-bar"></div></div>
+          <div class="kv"><span>Needed to sell</span><b>${money(G.EXIT_VALUATION)}</b></div><div class="kv"><span>Founder Points if you sell now</span><b id="ex-fp"></b></div>
+          <div class="kv"><span>Companies sold</span><b>${S.exits}</b></div>
+          <button class="btn ${isArmed ? 'danger' : 'rep'} block" data-act="exit" ${ok ? '' : 'disabled'}><span>${isArmed ? 'Click again to sell' : 'Sell company'}</span><span class="num">${ok ? '' : 'not yet'}</span></button></div>
+        <p class="cm-line">// keeps: Founder Points, perks, achievements. resets: everything else.</p>`;
+    },
+    live: () => { $('#ex-val').textContent = money(G.valuation(S)); $('#ex-bar').style.width = fillPct(G.valuation(S), G.EXIT_VALUATION); $('#ex-fp').textContent = '+' + G.fpGain(S); },
+  },
+  perks: {
+    key: () => 'p|' + S.fp + '|' + Object.keys(S.perks).join(','),
+    html: () => `<div class="vhead"><div><div class="cm-line">// founder/perks.ts</div><h2>Founder perks</h2><p>Permanent. Each unspent Founder Point gives +10% code and income, so spending is a trade-off.</p></div>
+      <span class="pill rep">${S.fp} points · ×${(1 + 0.1 * S.fp).toFixed(1)}</span></div>
+      <div class="cards">${G.PERKS.map((p) => `<div class="card ${S.perks[p.id] ? 'done' : ''}"><div class="top"><span class="t">${p.name}</span><span class="pill rep">${p.cost} pt</span></div><span class="d">${p.desc}</span>
+        ${S.perks[p.id] ? '<span class="pill good">owned</span>' : `<button class="btn rep" data-act="perk" data-arg="${p.id}" ${S.fp >= p.cost ? '' : 'disabled'}><span>Unlock</span><span class="num">${p.cost} pt</span></button>`}</div>`).join('')}</div>`,
+  },
+  achievements: {
+    key: () => 'a|' + Object.keys(S.ach).length,
+    html: () => `<div class="vhead"><div><div class="cm-line"># ACHIEVEMENTS.md</div><h2>Achievements</h2><p>Each one gives +1% code and income, forever.</p></div><span class="pill good">${Object.keys(S.ach).length} / ${G.ACHIEVEMENTS.length}</span></div>
+      <div class="cards">${G.ACHIEVEMENTS.map((a) => `<div class="card ${S.ach[a.id] ? '' : 'done'}"><span class="t mono">${S.ach[a.id] ? '[x]' : '[ ]'} ${a.name}</span><span class="d">${S.ach[a.id] || a.id !== 'duck' ? a.desc : '???'}</span></div>`).join('')}</div>`,
+  },
+};
+
+function renderView() {
+  if (UI.file && !visibleFiles().some((f) => f.id === UI.file)) UI.file = null;
+  const id = UI.file || 'welcome';
+  const v = VIEWS[id];
+  const f = FILES.find((x) => x.id === id);
+  region('view-tabs', 'tab' + id, () => `<div class="tab active">${f ? `<span class="crumb">${f.folder ? f.folder + ' /' : ''}</span> ${f.name}` : 'Welcome'}</div>`);
+  if (region('view', id + '#' + v.key(), v.html) || true) v.live && v.live();
+}
+
+function renderPanel() {
+  const d = G.debtPct(S);
+  region('ptabs', `${UI.ptab}|${S.revealed.debt}|${sev(d)}|${Math.round(d * 100)}`, () => `
+    <button class="ptab" role="tab" data-act="ptab" data-arg="terminal" aria-selected="${UI.ptab === 'terminal'}">Terminal</button>
+    ${S.revealed.debt ? `<button class="ptab" role="tab" data-act="ptab" data-arg="problems" aria-selected="${UI.ptab === 'problems'}">Problems <span class="badge ${sev(d) === 'good' ? '' : sev(d)}">${pct(d)} debt</span></button>` : ''}`);
+  if (UI.ptab === 'problems' && S.revealed.debt) {
+    region('pbody', 'problems', () => `<div class="problems">
+      <div class="col"><p class="hint">Fast, sloppy code piles up tech debt. Debt lowers your income and makes incidents more likely. Put part of the team on refactoring to pay it down.</p>
+        <div class="bar"><div id="debt-bar"></div></div>
+        <div class="kv"><span>Tech debt</span><b id="debt-pct"></b></div><div class="kv"><span>Income multiplier</span><b id="debt-q"></b></div></div>
+      <div class="col"><label for="refactor" class="kv"><span>Team time on refactoring</span><b id="ref-lbl"></b></label>
+        <input type="range" id="refactor" min="0" max="90" step="5" value="${Math.round(S.refactor * 100)}">
+        <div class="ends"><span>All features</span><span>Mostly cleanup</span></div>
+        <div class="kv"><span>Debt per second</span><b id="debt-rate"></b></div><div class="kv"><span>Big-team bugs (Brooks's law)</span><b id="debt-team"></b></div>
+        ${G.mods(S).autoShip ? `<label for="autodebt" class="kv"><span>Auto-ship only under</span><b id="ad-lbl"></b></label><input type="range" id="autodebt" min="5" max="40" step="1" value="${Math.round(S.autoShipDebt * 100)}">` : ''}</div></div>`);
+    const R = G.rates(S);
+    $('#debt-bar').style.width = Math.min(100, d * 200) + '%';
+    $('#debt-bar').parentElement.className = 'bar ' + (sev(d) === 'bad' ? 'bad' : sev(d) === 'warn' ? 'money' : '');
+    $('#debt-pct').textContent = pct(d);
+    $('#debt-q').textContent = '×' + G.quality(S).toFixed(2);
+    $('#ref-lbl').textContent = pct(S.refactor);
+    const net = R.bug - R.refactor;
+    $('#debt-rate').textContent = (net >= 0 ? '+' : '') + fmt(net) + '/s';
+    $('#debt-team').textContent = '×' + G.teamBug(S).toFixed(2);
+    const sl = $('#refactor'); if (document.activeElement !== sl) sl.value = Math.round(S.refactor * 100);
+    if ($('#ad-lbl')) $('#ad-lbl').textContent = pct(S.autoShipDebt);
+  } else {
+    const top = S.feed[0];
+    region('pbody', 'log|' + S.feed.length + '|' + (top ? top.t + top.text : ''), () => `<div class="log">
+      <div><span class="prompt">$</span><b>git log --oneline</b></div>
+      ${S.feed.length ? S.feed.map((f) => `<div class="${f.kind}"><span>${String(Math.floor(f.t / 60)).padStart(2, '0')}:${String(Math.floor(f.t % 60)).padStart(2, '0')}</span><b>${esc(f.text)}</b></div>`).join('') : '<div><span>00:00</span><b>Initial commit. Click app.ts to start writing code.</b></div>'}</div>`);
   }
-  if (vir) { const l = Math.max(0, vir.until - S.t); $('#vir-left').textContent = Math.ceil(l) + ' s'; $('#vir-bar').style.width = l / 12 * 100 + '%'; }
 }
 
-function renderShip() {
-  if (!S.revealed.ship) { panel('p-ship', 'hidden', () => ''); return; }
-  panel('p-ship', `ship|${!!S.done.cicd}|${S.autoShip}`, () => `<div class="box">
-    <h2>Release <span class="pill good" id="ship-ver"></span></h2>
-    <p class="hint">Shipping turns your unshipped code into monthly revenue (MRR) and Reputation. Your money comes from what you ship.</p>
-    <div class="kv"><span>Unshipped code</span><b id="sh-loc"></b></div>
-    <div class="kv"><span>Shipping now adds</span><b id="sh-gain"></b></div>
-    <div class="kv"><span>Chance of an incident</span><b id="sh-risk"></b></div>
-    <button class="btn" data-act="ship" id="ship-btn"><span class="fill" id="ship-fill"></span><span id="ship-lbl"></span><span class="num" id="ship-sub"></span></button>
-    ${S.done.cicd ? `<div class="kv" style="align-items:center"><span>Auto-ship while debt is under <b id="ad-lbl"></b></span>
-      <button class="btn small ${S.autoShip ? '' : 'ghost'}" data-act="autoship">${S.autoShip ? 'On' : 'Off'}</button></div>
-      <input type="range" id="autodebt" min="5" max="40" step="1" value="${Math.round(S.autoShipDebt * 100)}" aria-label="Auto-ship debt limit">` : ''}
-  </div>`);
-  const gain = G.shipGain(S);
-  $('#ship-ver').textContent = 'next ' + G.versionStr({ version: S.version[1] === 9 ? [S.version[0] + 1, 0] : [S.version[0], S.version[1] + 1] });
-  $('#sh-loc').textContent = fmt(S.loc) + ' lines';
-  $('#sh-gain').textContent = `+${money(gain)}/s · +${fmt(0.6 * Math.sqrt(S.loc) * G.quality(S) * (S.done.brand ? 1.5 : 1))} Rep`;
-  const risk = G.incidentChance(S);
-  $('#sh-risk').textContent = pct(risk);
-  $('#sh-risk').style.color = risk < 0.15 ? 'var(--accent)' : risk < 0.35 ? 'var(--warn)' : 'var(--danger)';
-  const b = $('#ship-btn');
-  b.disabled = !G.canShip(S);
-  if (S.deployLeft > 0) { $('#ship-lbl').textContent = 'Deploying…'; $('#ship-sub').textContent = Math.ceil(S.deployLeft) + ' s'; $('#ship-fill').style.width = (1 - S.deployLeft / G.DEPLOY_TIME) * 100 + '%'; }
-  else if (S.loc < G.MIN_SHIP) { $('#ship-lbl').textContent = 'Ship'; $('#ship-sub').textContent = `need ${G.MIN_SHIP} lines`; $('#ship-fill').style.width = S.loc / G.MIN_SHIP * 100 + '%'; }
-  else { $('#ship-lbl').textContent = 'Ship it'; $('#ship-sub').textContent = fmt(S.loc) + ' lines'; }
-  if ($('#ad-lbl')) $('#ad-lbl').textContent = pct(S.autoShipDebt);
-}
-
-function renderDebt() {
-  if (!S.revealed.debt) { panel('p-debt', 'hidden', () => ''); return; }
-  panel('p-debt', 'debt', () => `<div class="box">
-    <h2>Tech debt <span class="pill" id="debt-pill"></span></h2>
-    <p class="hint">Fast, sloppy code piles up debt. Debt lowers your income and causes incidents. Put part of the team on refactoring to pay it down.</p>
-    <div class="bar"><div id="debt-bar"></div></div>
-    <div class="kv"><span>Income multiplier</span><b id="debt-q"></b></div>
-    <div class="kv"><span>Debt per second</span><b id="debt-rate"></b></div>
-    <div class="kv"><span>Big-team bugs (Brooks's law)</span><b id="debt-team"></b></div>
-    <div class="slider"><label for="refactor" class="kv"><span>Team time on refactoring</span><b id="ref-lbl"></b></label>
-      <input type="range" id="refactor" min="0" max="90" step="5" value="${Math.round(S.refactor * 100)}">
-      <div class="ends"><span>All features</span><span>Mostly cleanup</span></div></div>
-  </div>`);
-  const d = G.debtPct(S), R = G.rates(S);
-  $('#debt-pill').textContent = pct(d);
-  $('#debt-pill').className = 'pill ' + (sev(d) === 'good' ? 'good' : sev(d) === 'warn' ? 'money' : 'bad');
-  $('#debt-bar').style.width = Math.min(100, d * 200) + '%';
-  $('#debt-bar').parentElement.className = 'bar ' + (sev(d) === 'bad' ? 'bad' : sev(d) === 'warn' ? 'money' : '');
-  $('#debt-q').textContent = '×' + G.quality(S).toFixed(2);
-  const net = R.bug - R.refactor;
-  $('#debt-rate').textContent = (net >= 0 ? '+' : '') + fmt(net) + '/s';
-  $('#debt-team').textContent = '×' + G.teamBug(S).toFixed(2);
-  $('#ref-lbl').textContent = pct(S.refactor);
-  const sl = $('#refactor'); if (document.activeElement !== sl) sl.value = Math.round(S.refactor * 100);
-}
-
-function renderContracts() {
-  if (!S.revealed.contracts) { panel('p-contracts', 'hidden', () => ''); return; }
-  const key = 'c|' + S.contracts.map((c) => c.id + ':' + G.contractOk(S, c)).join(',');
-  panel('p-contracts', key, () => `<div class="box">
-    <h2>Client work <span class="pill money">Fast cash</span></h2>
-    <p class="hint">Clients pay once, right away. Your own product pays a little every second, forever. Both use the same code.</p>
-    <div class="rows">${S.contracts.length ? S.contracts.map((c) => `<div class="row-card">
-      <div class="row-top"><div class="grow"><h3>${esc(c.job[0].toUpperCase() + c.job.slice(1))}</h3><div class="sub">${esc(c.client)}</div></div></div>
-      <div class="meta"><span class="pill">${fmt(c.size)} lines</span><span class="pill money">${money(c.pay)}</span><span class="pill rep">+${c.rep} Rep</span>
-        ${c.maxDebt != null ? `<span class="pill ${G.debtPct(S) <= c.maxDebt ? 'good' : 'bad'}">debt ≤ ${pct(c.maxDebt)}</span>` : ''}</div>
-      <div class="bar thin"><div data-exp="${c.id}"></div></div>
-      <button class="btn money" data-act="deliver" data-arg="${c.id}" ${G.contractOk(S, c) ? '' : 'disabled'}><span class="fill" data-cfill="${c.id}"></span><span>Deliver</span><span class="num">${G.contractOk(S, c) ? '+' + money(c.pay) : c.maxDebt != null && G.debtPct(S) > c.maxDebt ? 'too much debt' : fmt(c.size) + ' lines'}</span></button>
-    </div>`).join('') : '<p class="hint">No offers right now. New clients will call soon.</p>'}</div></div>`);
-  for (const c of S.contracts) {
-    const e = document.querySelector(`[data-exp="${c.id}"]`); if (e) e.style.width = Math.max(0, (c.expires - S.t) / 180 * 100) + '%';
-    const f = document.querySelector(`[data-cfill="${c.id}"]`); if (f) f.style.width = Math.min(100, S.loc / c.size * 100) + '%';
-  }
-}
-
-function renderTeam() {
-  if (!S.revealed.team) { panel('p-team', 'hidden', () => ''); return; }
-  const shown = [];
-  for (const d of G.STAFF) {
-    if (G.staffUnlocked(S, d) || S.staff[d.id]) shown.push(d);
-    else { if (!d.needs) shown.push(d); break; }
-  }
-  const full = G.headcount(S) >= G.seats(S);
-  const nextOffice = G.OFFICES[S.office + 1];
-  const key = ['t', S.office, full, shown.map((d) => d.id + S.staff[d.id] + G.staffUnlocked(S, d) + (S.money >= G.staffCost(S, d.id))).join(','), nextOffice && S.money >= nextOffice.cost && S.rep >= nextOffice.rep].join('|');
-  panel('p-team', key, () => `<div class="box">
-    <h2>Team</h2>
-    <div class="office"><b>${G.OFFICES[S.office].name}</b><span class="num">${G.headcount(S)} / ${G.seats(S)} seats</span>
-      <div class="bar"><div style="width:${G.headcount(S) / G.seats(S) * 100}%"></div></div></div>
-    ${nextOffice ? `<button class="btn ${full ? 'money' : 'ghost'}" data-act="office" ${S.money >= nextOffice.cost && S.rep >= nextOffice.rep ? '' : 'disabled'}><span>Move to ${nextOffice.name} (${nextOffice.seats} seats)</span><span class="num">${S.rep < nextOffice.rep ? 'needs ' + fmt(nextOffice.rep) + ' Rep' : money(nextOffice.cost)}</span></button>` : ''}
-    <div class="rows">${shown.map((d) => {
-      const un = G.staffUnlocked(S, d);
-      if (!un) return `<div class="row-card locked"><div class="row-top"><div class="grow"><h3>${d.name}</h3><div class="sub">Unlocks at ${fmt(d.rep)} Reputation</div></div></div><div class="bar rep thin"><div style="width:${Math.min(100, S.rep / d.rep * 100)}%"></div></div></div>`;
-      const c = G.staffCost(S, d.id);
-      return `<div class="row-card"><div class="row-top"><div class="grow"><h3>${d.name}</h3><div class="sub">${d.note}</div></div><span class="owned num">${S.staff[d.id]}</span></div>
-        <div class="meta"><span class="pill good">${fmt(d.out)} LoC/s</span><span class="pill ${d.bug >= 0.3 ? 'bad' : d.bug >= 0.1 ? 'money' : 'good'}">${pct(G.staffBug(S, d))} bugs</span></div>
-        <button class="btn" data-act="hire" data-arg="${d.id}" ${!full && S.money >= c ? '' : 'disabled'}><span class="fill" data-hfill="${d.id}"></span><span>Hire</span><span class="num">${full ? 'office full' : money(c)}</span></button></div>`;
-    }).join('')}</div></div>`);
-  for (const d of shown) { const f = document.querySelector(`[data-hfill="${d.id}"]`); if (f) f.style.width = Math.min(100, S.money / G.staffCost(S, d.id) * 100) + '%'; }
-}
-
-function renderProjects() {
-  const vis = G.PROJECTS.filter((p) => G.projectVisible(S, p));
-  if (!S.revealed.projects || !vis.length) { panel('p-projects', S.revealed.projects ? 'empty' : 'hidden', () => S.revealed.projects ? `<div class="box"><h2>Projects</h2><p class="hint">No new projects right now. Keep growing to discover more.</p></div>` : ''); return; }
-  panel('p-projects', 'p|' + vis.map((p) => p.id + G.canAffordProject(S, p)).join(','), () => `<div class="box">
-    <h2>Projects <span class="pill rep">Change the rules</span></h2>
-    <div class="tiles">${vis.map((p) => `<div class="tile"><span class="t">${p.name}</span><span class="d">${p.desc}</span>
-      <button class="btn small ${p.cost.money ? 'money' : ''}" data-act="project" data-arg="${p.id}" ${G.canAffordProject(S, p) ? '' : 'disabled'}><span class="fill" data-pfill="${p.id}"></span><span>Start</span><span class="num">${p.cost.money ? money(p.cost.money) : fmt(p.cost.loc) + ' lines'}</span></button></div>`).join('')}</div></div>`);
-  for (const p of vis) { const f = document.querySelector(`[data-pfill="${p.id}"]`); if (f) f.style.width = Math.min(100, (p.cost.money ? S.money / p.cost.money : S.loc / p.cost.loc) * 100) + '%'; }
-}
-
-function renderMarket() {
-  if (!S.revealed.markets) { panel('p-market', 'hidden', () => ''); return; }
-  const nx = G.MARKETS[S.market + 1];
-  panel('p-market', `m|${S.market}|${nx && S.money >= nx.cost && S.rep >= nx.rep}`, () => `<div class="box">
-    <h2>Market <span class="pill good">${G.MARKETS[S.market].name}</span></h2>
-    <p class="hint">Each market can only pay so much. When it is nearly full, new releases add little. Expand, or take client work.</p>
-    <div class="kv"><span>Market filled</span><b id="mk-sat"></b></div>
-    <div class="bar money"><div id="mk-bar"></div></div>
-    <div class="kv"><span>Market size</span><b>${money(G.cap(S))}/s</b></div>
-    ${nx ? `<button class="btn money" data-act="market" ${S.money >= nx.cost && S.rep >= nx.rep ? '' : 'disabled'}><span class="fill" id="mk-fill"></span><span>Launch ${nx.name}</span><span class="num">${S.rep < nx.rep ? 'needs ' + fmt(nx.rep) + ' Rep' : money(nx.cost)}</span></button>` : ''}
-  </div>`);
-  $('#mk-sat').textContent = pct(G.saturation(S));
-  $('#mk-bar').style.width = G.saturation(S) * 100 + '%';
-  if (nx && $('#mk-fill')) $('#mk-fill').style.width = Math.min(100, S.money / nx.cost * 100) + '%';
-}
-
-function renderExit() {
-  if (!S.revealed.exit) { panel('p-exit', 'hidden', () => ''); return; }
-  const ok = G.valuation(S) >= G.EXIT_VALUATION;
-  const isArmed = Date.now() - armed.exit < 4000;
-  panel('p-exit', `x|${ok}|${isArmed}`, () => `<div class="box">
-    <h2>Sell the company <span class="pill rep">Prestige</span></h2>
-    <p class="hint">Valuation is your income × 500. Selling starts a new company from zero, but every XP makes code and income 25% stronger, forever.</p>
-    <div class="kv"><span>Valuation</span><b id="ex-val"></b></div>
-    <div class="bar rep"><div id="ex-bar"></div></div>
-    <div class="kv"><span>XP if you sell now</span><b id="ex-xp"></b></div>
-    <button class="btn ${isArmed ? 'danger' : ''}" data-act="exit" ${ok ? '' : 'disabled'}><span>${isArmed ? 'Click again to sell' : 'Sell company'}</span><span class="num">${ok ? '' : 'needs $1M'}</span></button>
-  </div>`);
-  $('#ex-val').textContent = money(G.valuation(S));
-  $('#ex-bar').style.width = Math.min(100, G.valuation(S) / G.EXIT_VALUATION * 100) + '%';
-  $('#ex-xp').textContent = '+' + G.xpGain(S);
-}
-
-function renderLog() {
-  const top = S.feed[0];
-  panel('p-log', 'l|' + S.feed.length + '|' + (top ? top.t + top.text : ''), () => `<div class="box">
-    <h2>git log</h2>
-    <div class="log">${S.feed.length ? S.feed.map((f) => `<div class="${f.kind}"><span>${String(Math.floor(f.t / 60)).padStart(2, '0')}:${String(Math.floor(f.t % 60)).padStart(2, '0')}</span><b>${esc(f.text)}</b></div>`).join('') : '<div><span>00:00</span><b>Initial commit. Click the editor to start writing code.</b></div>'}</div></div>`);
+function renderStatus() {
+  const R = G.rates(S);
+  const d = G.debtPct(S);
+  const isArmedReset = Date.now() - armed.reset < 4000;
+  const items = [
+    `<span class="it" data-act="duck" title="Rubber duck">🦆 main · ${G.versionStr(S)}</span>`,
+    `<span class="it"><span class="k">LoC</span><span id="st-loc"></span></span>`,
+  ];
+  if (S.revealed.money) items.push(`<span class="it"><span class="k">$</span><span id="st-money"></span></span>`);
+  if (S.revealed.rep) items.push(`<span class="it"><span class="k">★ Rep</span><span id="st-rep"></span></span>`);
+  if (S.revealed.debt) items.push(`<span class="it ${sev(d) !== 'good' ? 'warn' : ''}" id="st-debt-wrap"><span class="k">⚠ debt</span><span id="st-debt"></span></span>`);
+  if (S.fp || S.exits) items.push(`<span class="it"><span class="k">FP</span>${S.fp}</span>`);
+  items.push('<span class="sp"></span>');
+  items.push(`<span class="it"><span class="k">company #${S.exits + 1} · ${Math.floor(S.t / 60)} min</span></span>`);
+  items.push(`<span class="it"><span class="k">speed</span></span>${[1, 5, 20].map((x) => `<button data-act="speed" data-arg="${x}" aria-pressed="${speed === x}">×${x}</button>`).join('')}`);
+  items.push(`<button data-act="reset">${isArmedReset ? 'click again to reset' : 'reset'}</button>`);
+  region('status', [S.revealed.money, S.revealed.rep, S.revealed.debt, sev(d), S.fp, S.exits, Math.floor(S.t / 60), speed, isArmedReset, S.version.join('.')].join('|'), () => items.join(''));
+  $('#st-loc').textContent = fmt(S.loc) + (R.feature ? ` (+${fmt(R.feature)}/s)` : '');
+  if ($('#st-money')) $('#st-money').textContent = fmt(S.money) + (S.revealed.ship ? ` (+${fmt(G.mrr(S))}/s)` : '');
+  if ($('#st-rep')) $('#st-rep').textContent = fmt(S.rep);
+  if ($('#st-debt')) $('#st-debt').textContent = pct(d);
 }
 
 function render() {
-  renderResources(); renderEditor(); renderEvents(); renderShip(); renderDebt();
-  renderContracts(); renderTeam(); renderProjects(); renderMarket(); renderExit(); renderLog();
-  const m = Math.floor(S.t / 60);
-  $('#run-info').textContent = `Run time ${m} min · Company #${S.exits + 1}${S.xp ? ` · ${S.xp} XP (×${(1 + 0.25 * S.xp).toFixed(2)})` : ''}`;
-  $('#reset-btn').textContent = Date.now() - armed.reset < 4000 ? 'Click again to reset' : 'Reset save';
+  renderTitle(); renderExplorer(); renderWrite(); renderView(); renderPanel(); renderStatus();
 }
 
 /* ---------- loop ---------- */
@@ -574,14 +749,16 @@ function frame(now) {
   let dt = Math.min(1, (now - last) / 1000) * speed;
   last = now;
   while (dt > 0) { const step = Math.min(0.1, dt); G.tick(S, step, Math.random); dt -= step; }
-  for (const ev of S.events) toast(ev.text, ev.kind);
+  for (const ev of S.events) if (ev.kind === 'reveal' || ev.kind === 'bad') toast(ev.text, ev.kind);
   S.events.length = 0;
+  // open the first file automatically so a new player is never staring at an empty pane
+  if (!UI.file) { const first = visibleFiles()[0]; if (first && Object.keys(UI.opened).length === 0) { UI.file = first.id; UI.opened[first.id] = true; } }
   render();
   if (now > saveAt) { save(); saveAt = now + 5000; }
   requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
-if (G.__welcome) setTimeout(() => toast(G.__welcome, 'reveal'), 300);
+if (window.__welcome) setTimeout(() => toast(window.__welcome, 'reveal'), 300);
 render();
 requestAnimationFrame(frame);
 })();
