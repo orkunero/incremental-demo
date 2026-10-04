@@ -3,13 +3,13 @@
 (function (root) {
   'use strict';
 
-  const GROWTH = 1.17;
+  const GROWTH = 1.2;
   const SUPPORT_GROWTH = 1.22;
   const MIN_SHIP = 10;
   const MRR_PER_LOC = 0.002;
   const LAUNCH_SECONDS = 90;
   const CONTRACT_PAY = 0.8;
-  const EXIT_VALUATION = 2.5e7;
+  const EXIT_VALUATION = 5e7;
   const VALUATION_MULT = 500;
 
   // ---------- roles ----------
@@ -203,6 +203,9 @@
     { id: 'veteran', cost: 4, name: 'Process Veteran', desc: 'Keep all Process upgrades when you sell.' },
     { id: 'instinct', cost: 4, name: 'Market Instinct', desc: 'Markets and offices cost 40% less.', fx: (m) => { m.expandCost *= 0.6; } },
     { id: 'unicorn', cost: 6, name: 'Unicorn Hunter', desc: 'Selling gives 50% more Founder Points.', fx: (m) => { m.fpGain *= 1.5; } },
+    { id: 'bounty', cost: 1, name: 'Bug Bounty', desc: 'Squashing a bug pays 3×.', fx: (m) => { m.bugReward *= 3; } },
+    { id: 'negotiator', cost: 2, name: 'Negotiator', desc: 'Decisions that pay you cash pay 50% more.', fx: (m) => { m.decisionPay *= 1.5; } },
+    { id: 'botarmy', cost: 4, name: 'Bot Army', desc: 'Start every company with Zapier Flows and Refactor Bot.' },
   ];
 
   // ---------- achievements (+1% code and income each, kept forever) ----------
@@ -236,7 +239,97 @@
     ['exit5', 'Serial Founder', 'Sell 5 companies.', (s) => s.exits >= 5],
     ['speedrun', 'Speedrun', 'Sell a company within 20 minutes.', (s) => s.flags.speedrun],
     ['duck', 'Rubber Duck Debugging', 'Talk to the duck.', (s) => s.flags.duck],
+    ['squash', 'Exterminator', 'Squash 25 bugs in total.', (s) => s.life.bugs >= 25],
+    ['bounty', 'Bug Bounty Hunter', 'Squash 250 bugs in total.', (s) => s.life.bugs >= 250],
+    ['todo', 'Inbox Zero', 'Finish every goal in TODO.md in one company.', (s) => s.goal >= GOALS.length],
+    ['decider', 'Decision Maker', 'Make 10 decisions in total.', (s) => s.life.decisions >= 10],
+    ['crunch', 'Crunch Mode', 'Say yes to crunch time.', (s) => s.flags.crunch],
+    ['bots', 'Fully Automated', 'Own every workflow bot in one company.', (s) => UPGRADES.filter((u) => u.cat === 'automation').every((u) => s.done[u.id])],
+    ['uptime', 'Zero Downtime', 'Ship 50 releases in one company without an incident.', (s) => s.stats.ships >= 50 && s.stats.incidents === 0],
+    ['challenger', 'Challenger', 'Complete a challenge.', (s) => Object.keys(s.chDone).length >= 1],
+    ['allchallenges', 'Hard Mode', 'Complete every challenge.', (s) => CHALLENGES.every((c) => s.chDone[c.id])],
   ].map(([id, name, desc, check]) => ({ id, name, desc, check }));
+
+  // ---------- automation (workflows.yml) ----------
+  U('zapier', 'automation', 'Zapier Flows', 'Workflow: delivers client work by itself when you have the code.', { money: 15000 }, (s) => s.stats.contracts >= 8, (m) => { m.autoDeliver = true; });
+  U('refactorbot', 'automation', 'Refactor Bot', 'Workflow: moves the refactoring slider to hold debt near your target.', { loc: 25000 }, (s) => s.stats.incidents >= 3 || s.refactor > 0, (m) => { m.autoRefactor = true; });
+  U('dependabot', 'automation', 'Dependabot', 'Workflow: installs any upgrade that costs under 10% of what you have.', { money: 60000 }, (s) => Object.keys(s.done).length >= 20, (m) => { m.autoUpgrade = true; });
+  U('bugbot', 'automation', 'Bug Triage Bot', 'Workflow: squashes bugs before they escape.', { loc: 80000 }, (s) => s.stats.bugs >= 20, (m) => { m.autoBug = true; });
+  U('pipeline', 'automation', 'Recruiting Pipeline', 'Workflow: hires the best engineer whenever a seat is free.', { money: 500000 }, (s) => headcount(s) >= 60, (m) => { m.autoHire = true; });
+
+  // ---------- goals (TODO.md): one at a time, each pays a reward ----------
+  const payMoney = (sec, min) => (s) => ({ money: Math.max(min, mrr(s) * sec) });
+  const payLoc = (sec, min) => (s) => ({ loc: Math.max(min, rates(s).feature * sec) });
+  const payRep = (pct, min) => (s) => ({ rep: Math.max(min, s.rep * pct) });
+  const supportCount = (s) => SUPPORT.reduce((a, d) => a + s.staff[d.id], 0);
+  const GOALS = [
+    ['Write 10 lines of code', (s) => [s.written, 10], payLoc(0, 10)],
+    ['Deliver a client job', (s) => [s.stats.contracts, 1], payMoney(0, 25)],
+    ['Hire your first person', (s) => [headcount(s), 1], payMoney(0, 20)],
+    ['Ship your first release', (s) => [s.stats.ships, 1], payLoc(0, 30)],
+    ['Build a product feature', (s) => [Object.keys(s.features).length, 1], payRep(0, 10)],
+    ['Grow the team to 5 people', (s) => [headcount(s), 5], payMoney(15, 100)],
+    ['Install 3 upgrades', (s) => [Object.keys(s.done).length, 3], payMoney(15, 150)],
+    ['Reach 60 Reputation', (s) => [s.rep, 60], payMoney(20, 300)],
+    ['Hire a Senior Dev', (s) => [s.staff.senior, 1], payLoc(15, 500)],
+    ['Squash 5 bugs', (s) => [s.stats.bugs, 5], payMoney(25, 500)],
+    ['Launch Nationwide', (s) => [s.market, 1], payMoney(25, 800)],
+    ['Hire a support role', (s) => [supportCount(s), 1], payRep(0.1, 20)],
+    ['Pick a pricing strategy', (s) => [s.features.freemium || s.features.enterprise ? 1 : 0, 1], payMoney(25, 1000)],
+    ['Reach $50/s income', (s) => [mrr(s), 50], payLoc(25, 2000)],
+    ['Grow the team to 25 people', (s) => [headcount(s), 25], payMoney(30, 3000)],
+    ['Reach 1,000 Reputation', (s) => [s.rep, 1000], payMoney(30, 5000)],
+    ['Install 20 upgrades', (s) => [Object.keys(s.done).length, 20], payMoney(30, 2000)],
+    ['Hire a Tech Lead', (s) => [s.staff.lead, 1], payLoc(25, 4000)],
+    ['Launch Continental', (s) => [s.market, 2], payMoney(40, 10000)],
+    ['Reach $1K/s income', (s) => [mrr(s), 1000], payMoney(40, 20000)],
+    ['Build 10 product features', (s) => [Object.keys(s.features).length, 10], payRep(0.2, 500)],
+    ['Grow the team to 60 people', (s) => [headcount(s), 60], payMoney(40, 40000)],
+    ['Reach a $10M valuation', (s) => [valuation(s), 1e7], payMoney(60, 100000)],
+    ['Reach the sale target', (s) => [valuation(s), exitNeed(s)], payRep(0.25, 1000)],
+  ].map(([text, prog, reward], i) => ({ i, text, prog, reward }));
+
+  // ---------- decisions: two options, 30 s to choose ----------
+  const inc = (s, sec, min) => Math.max(min, mrr(s) * sec) * mods(s).decisionPay;
+  const DECISIONS = [
+    { id: 'rush', title: 'Rush job', text: 'A client offers to pay big for a job due tonight.',
+      a: ['Take it', '+90 s of income, +5 points of debt', (s) => { s.money += inc(s, 90, 200); s.debt += s.written * 0.05; }],
+      b: ['Pass', 'keep a sane schedule', () => {}] },
+    { id: 'crunch', title: 'Crunch time?', text: 'Investors want the launch moved up a week.',
+      a: ['Crunch', 'team ×2 for 60 s, but ×3 bugs', (s) => { addTemp(s, 'out', 2, 60); addTemp(s, 'bug', 3, 60); s.flags.crunch = true; }],
+      b: ['Push back', '+10% Reputation for being honest', (s) => { s.rep *= 1.1; }] },
+    { id: 'oss', title: 'Open source it?', text: 'Your internal tooling could be a popular open-source project.',
+      a: ['Open source', '+25% Reputation, lose 30% of unshipped code', (s) => { s.rep *= 1.25; s.loc *= 0.7; }],
+      b: ['Keep it', '+45 s of income from licensing', (s) => { s.money += inc(s, 45, 100); }] },
+    { id: 'poach', title: 'Poaching attempt', text: 'BigCorp is trying to hire away one of your Senior Devs.', when: (s) => s.staff.senior >= 2,
+      a: ['Counter-offer', 'pay 1 min of income', (s) => { s.money = Math.max(0, s.money - Math.max(500, mrr(s) * 60)); }],
+      b: ['Let them go', 'lose a Senior Dev', (s) => { s.staff.senior--; touch(s); }] },
+    { id: 'audit', title: 'Security audit', text: 'A big customer asks for a security audit before signing.',
+      a: ['Do the audit', 'costs 30 s of code, incidents −50% for 5 min', (s) => { s.loc = Math.max(0, s.loc - rates(s).feature * 30); addTemp(s, 'incident', 0.5, 300); }],
+      b: ['Skip it', '−5% Reputation', (s) => { s.rep *= 0.95; }] },
+    { id: 'keynote', title: 'Keynote invite', text: 'A big conference wants you on stage.',
+      a: ['Give the talk', 'pay 90 s of income, +30% Reputation, trending soon', (s) => { s.money = Math.max(0, s.money - Math.max(300, mrr(s) * 90)); s.rep *= 1.3; s.nextViral = s.t + 15; }],
+      b: ['Stay and code', 'team +50% for 60 s', (s) => { addTemp(s, 'out', 1.5, 60); }] },
+    { id: 'angel', title: 'Angel investor', text: 'An angel offers cash now for a slice of your future income.',
+      a: ['Take the money', '+2.5 min of income now, −5% income for this company', (s) => { s.money += inc(s, 150, 1000); s.dilution *= 0.95; }],
+      b: ['No thanks', 'keep your equity', () => {}] },
+  ];
+
+  // ---------- challenges: a company with a hard rule, a permanent reward ----------
+  const CHALLENGES = [
+    { id: 'solo', name: 'Solo Founder', rule: 'You cannot hire anyone, but your own clicks are ×5.', goal: 2.5e5, reward: 'Clicks ×2 and flow builds 50% faster, forever.',
+      fx: (m) => { m.click *= 5; }, win: (m) => { m.click *= 2; m.flowGain *= 1.5; } },
+    { id: 'legacy', name: 'Legacy Codebase', rule: 'Start with 40% tech debt; refactoring is half as effective.', goal: 2.5e7, reward: 'Refactoring is 50% more effective, forever.',
+      fx: (m) => { m.refactor *= 0.5; }, win: (m) => { m.refactor *= 1.5; } },
+    { id: 'bootstrap', name: 'Bootstrapped', rule: 'No client work.', goal: 2.5e7, reward: 'Product income ×1.25, forever.',
+      fx: () => {}, win: (m) => { m.mrr *= 1.25; } },
+    { id: 'movefast', name: 'Move Fast and Break Things', rule: 'Deploys are instant, but incidents are 3× as likely and last 3× longer.', goal: 2.5e7, reward: 'Incidents 25% less likely, forever.',
+      fx: (m) => { m.deploy *= 0.05; m.incident *= 3; m.incDur *= 3; }, win: (m) => { m.incident *= 0.75; } },
+    { id: 'ramen', name: 'Ramen Budget', rule: 'Hires, offices and markets cost 3×.', goal: 1e7, reward: 'Hires cost 10% less, forever.',
+      fx: (m) => { m.allCost *= 3; m.expandCost *= 3; }, win: (m) => { m.allCost *= 0.9; } },
+    { id: 'cowboy', name: 'Cowboy Coding', rule: 'No Process upgrades.', goal: 1e7, reward: 'All code has 15% fewer bugs, forever.',
+      fx: () => {}, win: (m) => { m.allBug *= 0.85; } },
+  ];
 
   const CLIENTS = [
     'Crumb & Co. bakery', 'Dr. Ayla\'s dental clinic', 'Kadıköy Bikes', 'Moss Yoga Studio', 'Harbor Logistics',
@@ -258,6 +351,8 @@
       refactor: 0.5, deploy: 12, incident: 1, incDur: 60, hotfix: 8, postmortem: false,
       viralEvery: 1, viralBoost: 2, seats: 1, autoShip: false,
       featureCost: 1, expandCost: 1, fpGain: 1, prestige: 1,
+      bugReward: 1, decisionPay: 1,
+      autoDeliver: false, autoRefactor: false, autoUpgrade: false, autoBug: false, autoHire: false,
     };
   }
   const modsCache = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
@@ -270,6 +365,9 @@
     for (const f of FEATURES) if (s.features[f.id]) f.fx(m);
     for (const p of PERKS) if (s.perks[p.id] && p.fx) p.fx(m);
     for (const d of SUPPORT) if (s.staff[d.id]) d.fx(m, s.staff[d.id]);
+    for (const c of CHALLENGES) if (s.chDone[c.id]) c.win(m);
+    if (s.challenge) CHALLENGES.find((c) => c.id === s.challenge).fx(m);
+    if (s.perks.autohire) m.autoHire = true;
     const ach = Object.keys(s.ach).length;
     // unspent Founder Points: +10% each; achievements: +1% each
     m.prestige = (1 + 0.1 * s.fp) * (1 + 0.01 * ach);
@@ -306,9 +404,18 @@
   const staffBug = (s, d) => d.bug * mods(s).bug[d.id] * mods(s).allBug * teamBug(s);
   const cap = (s) => MARKETS[s.market].cap * mods(s).cap;
 
+  // Short-lived effects from decisions (crunch, audits...).
+  function tempMult(s, k) {
+    let v = 1;
+    for (const e of s.temp) if (e.k === k && e.until > s.t) v *= e.v;
+    return v;
+  }
+  function addTemp(s, k, v, sec) { s.temp.push({ k, v, until: s.t + sec }); }
+
   function rates(s) {
     const m = mods(s);
     let team = 0, bug = 0;
+    const byRole = {};
     const flowBoost = 1 + m.flowTeam * s.flow / 100;
     for (const d of ENGINEERS) {
       const n = s.staff[d.id];
@@ -316,15 +423,20 @@
       let mult = m.out[d.id] * m.allOut * m.prestige * flowBoost;
       for (const [from, to, per] of m.syn) if (to === d.id) mult *= 1 + per * s.staff[from];
       const out = n * d.out * mult;
+      byRole[d.id] = out;
       team += out;
       bug += out * staffBug(s, d);
     }
+    const tOut = tempMult(s, 'out');
+    team *= tOut;
+    bug *= tOut * tempMult(s, 'bug');
     const write = 1 - s.refactor;
-    return { team, feature: team * write, bug: bug * write, refactor: team * s.refactor * m.refactor };
+    for (const k in byRole) byRole[k] *= tOut;
+    return { team, feature: team * write, bug: bug * write, refactor: team * s.refactor * m.refactor, byRole };
   }
   const saturation = (s) => 1 - Math.exp(-s.mrrRaw / cap(s));
   // MRR before temporary event effects. Saturates at the market cap.
-  const baseMrr = (s) => cap(s) * saturation(s) * quality(s) * mods(s).mrr * mods(s).prestige;
+  const baseMrr = (s) => cap(s) * saturation(s) * quality(s) * mods(s).mrr * mods(s).prestige * s.dilution;
   const mrr = (s) => baseMrr(s) * (s.incident ? 0.5 : 1) * (s.t < s.boostUntil ? s.boostMult : 1);
   // MRR the current build would add if shipped now (after market saturation and debt).
   function shipGain(s) {
@@ -343,7 +455,7 @@
   const fpTotalFor = (sold) => Math.floor(2 * Math.cbrt(sold / 2.5e6));
   const fpGain = (s) => Math.floor(Math.max(0, fpTotalFor(s.soldTotal + valuation(s)) - fpTotalFor(s.soldTotal)) * mods(s).fpGain);
   // No risk below 8% debt, and the first 5 releases are always safe.
-  const incidentChance = (s) => (s.stats.ships < 5 ? 0 : Math.min(0.8, Math.max(0, debtPct(s) - 0.08) * 1.6) * mods(s).incident);
+  const incidentChance = (s) => (s.stats.ships < 5 ? 0 : Math.min(0.8, Math.max(0, debtPct(s) - 0.08) * 1.6) * mods(s).incident * tempMult(s, 'incident'));
   const versionStr = (s) => `v${s.version[0]}.${s.version[1]}`;
   const deployTime = (s) => mods(s).deploy;
   const officeCost = (s) => { const o = OFFICES[s.office + 1]; return o ? o.cost * mods(s).expandCost : Infinity; };
@@ -366,12 +478,15 @@
       incident: null, viral: null, boostUntil: 0, boostMult: 2, nextViral: 0,
       revealed: Object.assign({}, meta.revealed),
       feed: meta.feed || [],
-      stats: { clicks: 0, ships: 0, contracts: 0, incidents: 0, virals: 0, runMoney: 0 },
+      stats: { clicks: 0, ships: 0, contracts: 0, incidents: 0, virals: 0, runMoney: 0, bugs: 0, bugsEscaped: 0, decisions: 0 },
       flags: { cleanShip: false, yolo: false, speedrun: !!(meta.flags && meta.flags.speedrun), duck: !!(meta.flags && meta.flags.duck) },
-      life: Object.assign({ clicks: 0, ships: 0, contracts: 0, hotfixes: 0, money: 0 }, meta.life),
+      life: Object.assign({ clicks: 0, ships: 0, contracts: 0, hotfixes: 0, money: 0, bugs: 0, decisions: 0 }, meta.life),
       version: [0, 0],
       fp: meta.fp || 0, fpTotal: meta.fpTotal || 0, exits: meta.exits || 0, soldTotal: meta.soldTotal || 0,
       perks, ach: Object.assign({}, meta.ach),
+      goal: 0, bugs: [], bugSeq: 0, nextBug: 0, decision: null, nextDecision: 0, temp: [], dilution: 1,
+      autoDeliver: true, autoRefactor: true, refactorTarget: 0.1, autoUpgrade: true, autoBug: true,
+      challenge: meta.challenge || null, chDone: Object.assign({}, meta.chDone),
       events: [], // transient: UI reads and clears
     };
     if (perks.serial) { s.money += 500; s.office = 1; }
@@ -379,6 +494,8 @@
     if (perks.angel) s.money += 25000;
     if (perks.autodeploy) s.done.cicd = true;
     for (const id of meta.keep || []) s.done[id] = true;
+    if (perks.botarmy) { s.done.zapier = true; s.done.refactorbot = true; }
+    if (s.challenge === 'legacy') { s.written = 1000; s.debt = 400; }
     return s;
   }
 
@@ -472,7 +589,7 @@
   const roleUnlocked = (s, d) => s.rep >= d.rep && (!d.needs || s.done[d.needs]);
   function hire(s, id, want) {
     const d = role(id);
-    if (!d || !roleUnlocked(s, d)) return 0;
+    if (!d || !roleUnlocked(s, d) || s.challenge === 'solo') return 0;
     const { n, total } = bulk(s, id, want || 1);
     if (!n || total > s.money) return 0;
     s.money -= total;
@@ -531,6 +648,7 @@
 
   function upgradeVisible(s, u) {
     if (s.done[u.id]) return false;
+    if (s.challenge === 'cowboy' && u.cat === 'process') return false;
     if (s.seen[u.id]) return true;
     if (u.show(s) && withinReach(s, u.cost)) { s.seen[u.id] = true; reveal(s, 'upgrades', 'New upgrades available.'); return true; }
     return false;
@@ -580,6 +698,43 @@
     return true;
   }
 
+  function squash(s, id) {
+    const i = s.bugs.findIndex((b) => b.id === id);
+    if (i < 0) return 0;
+    s.bugs.splice(i, 1);
+    const pay = Math.max(3, mrr(s) * 3) * mods(s).bugReward;
+    s.money += pay;
+    s.stats.runMoney += pay;
+    // a small cleanup; the real win is that it no longer escapes into the codebase
+    s.debt = Math.max(0, s.debt - Math.max(1, s.written * 0.0015));
+    s.stats.bugs++;
+    s.life.bugs++;
+    return pay;
+  }
+
+  function decide(s, choice) {
+    if (!s.decision) return false;
+    const d = DECISIONS.find((x) => x.id === s.decision.id);
+    const opt = choice === 'a' ? d.a : d.b;
+    opt[2](s);
+    s.decision = null;
+    s.stats.decisions++;
+    s.life.decisions++;
+    log(s, `${d.title} ${opt[0]}.`, 'info');
+    return true;
+  }
+
+  // Abandon this company (no Founder Points) and start a new one under a challenge rule.
+  function startChallenge(s, id) {
+    if (!CHALLENGES.some((c) => c.id === id) || s.chDone[id]) return null;
+    const n = createState({
+      fp: s.fp, fpTotal: s.fpTotal, exits: s.exits, soldTotal: s.soldTotal, perks: s.perks, ach: s.ach, life: s.life,
+      flags: s.flags, revealed: s.revealed, feed: s.feed, chDone: s.chDone, challenge: id,
+    });
+    log(n, `Challenge started: ${CHALLENGES.find((c) => c.id === id).name}.`, 'reveal');
+    return n;
+  }
+
   const contractOk = (s, c) => s.loc >= c.size && (c.maxDebt == null || debtPct(s) <= c.maxDebt);
   function deliver(s, cid) {
     const i = s.contracts.findIndex((c) => c.id === cid);
@@ -613,8 +768,8 @@
       client: CLIENTS[Math.floor(rng() * CLIENTS.length)],
       job: integ ? 'API integration' : JOBS[Math.floor(rng() * JOBS.length)],
       size, maxDebt,
-      // capped at ~45 s of your market's size, so client work cannot outgrow the market
-      pay: Math.min(size * CONTRACT_PAY, cap(s) * 45) * bonus * m.pay * m.prestige,
+      // never more than 60 s of your whole market's size, after all bonuses: client work cannot outgrow the market
+      pay: Math.min(size * CONTRACT_PAY * bonus * m.pay, cap(s) * 60) * m.prestige,
       rep: Math.round(Math.sqrt(size) * 0.3 * bonus * m.contractRep),
       expires: s.t + 180 * m.contractTime,
       life: 180 * m.contractTime,
@@ -630,7 +785,7 @@
     const flags = { speedrun: s.flags.speedrun || s.t <= 1200, duck: s.flags.duck };
     const n = createState({
       fp: s.fp + gain, fpTotal: s.fpTotal + gain, exits: s.exits + 1, soldTotal: s.soldTotal + valuation(s), perks: s.perks,
-      ach: s.ach, life: s.life, flags, revealed: s.revealed, feed: s.feed, keep,
+      ach: s.ach, life: s.life, flags, revealed: s.revealed, feed: s.feed, keep, chDone: s.chDone,
     });
     log(n, `Sold the company for $${fmt(valuation(s))}. +${gain} Founder Points.`, 'reveal');
     n.revealed.founder = true;
@@ -674,7 +829,7 @@
 
     // contracts
     s.contracts = s.contracts.filter((c) => c.expires > s.t);
-    if (s.revealed.contracts && s.contracts.length < m.slots && s.t >= s.nextContract) {
+    if (s.revealed.contracts && s.challenge !== 'bootstrap' && s.contracts.length < m.slots && s.t >= s.nextContract) {
       newContract(s, rng);
       s.nextContract = s.t + (s.contracts.length < m.slots ? 20 : 45);
     }
@@ -694,9 +849,67 @@
       s.nextViral = s.t + (150 + rng() * 150) * m.viralEvery;
     }
 
+    // bugs crawl in more often when debt is high; escaped bugs add debt
+    for (let i = s.bugs.length - 1; i >= 0; i--) {
+      if (s.t - s.bugs[i].born > 15) { s.bugs.splice(i, 1); s.debt += Math.max(3, s.written * 0.002); s.stats.bugsEscaped++; }
+    }
+    if (s.revealed.debt && s.bugs.length < 3 && s.t >= s.nextBug) {
+      if (s.nextBug) { s.bugSeq++; s.bugs.push({ id: s.bugSeq, born: s.t, x: rng(), y: rng() }); }
+      s.nextBug = s.t + (20 + rng() * 20) / (0.4 + debtPct(s) * 8);
+    }
+
+    // decisions
+    if (s.decision && s.t > s.decision.until) { log(s, `You ignored: ${DECISIONS.find((x) => x.id === s.decision.id).title}`, 'info'); s.decision = null; }
+    if (!s.decision && s.stats.ships >= 8) {
+      if (!s.nextDecision) s.nextDecision = s.t + 60;
+      else if (s.t >= s.nextDecision) {
+        const pool = DECISIONS.filter((d) => !d.when || d.when(s));
+        s.decision = { id: pool[Math.floor(rng() * pool.length)].id, until: s.t + 30 };
+        s.nextDecision = s.t + 180 + rng() * 120;
+      }
+    }
+    s.temp = s.temp.filter((e) => e.until > s.t);
+
+    // goals
+    const g = GOALS[s.goal];
+    if (g) {
+      const [cur, target] = g.prog(s);
+      if (cur >= target) {
+        const r = g.reward(s);
+        if (r.money) { s.money += r.money; s.stats.runMoney += r.money; }
+        if (r.loc) s.loc += r.loc;
+        if (r.rep) s.rep += r.rep;
+        s.goal++;
+        log(s, `Done: ${g.text}. Reward: ${goalRewardText(r)}.`, 'goal');
+      }
+    }
+
+    // challenge complete
+    if (s.challenge && valuation(s) >= CHALLENGES.find((c) => c.id === s.challenge).goal) {
+      const c = CHALLENGES.find((x) => x.id === s.challenge);
+      s.chDone[c.id] = true;
+      s.challenge = null;
+      touch(s);
+      log(s, `Challenge complete: ${c.name}! ${c.reward}`, 'reveal');
+    }
+
     // automation
     if (m.autoShip && s.autoShip && canShip(s) && debtPct(s) <= s.autoShipDebt && s.loc >= Math.max(MIN_SHIP, r.feature * 10)) ship(s, rng);
-    if (s.perks.autohire && s.autoHire) { const b = bestEngineer(s); if (b) hire(s, b.id, 1); }
+    if (m.autoHire && s.autoHire) { const b = bestEngineer(s); if (b) hire(s, b.id, 1); }
+    s.autoTimer = (s.autoTimer || 0) + dt;
+    if (s.autoTimer >= 1) {
+      s.autoTimer = 0;
+      if (m.autoDeliver && s.autoDeliver) for (const c of [...s.contracts]) deliver(s, c.id);
+      if (m.autoUpgrade && s.autoUpgrade) {
+        for (const u of UPGRADES) if (upgradeVisible(s, u) && (u.cost.money ? u.cost.money <= s.money * 0.1 : u.cost.loc <= s.loc * 0.1)) buyUpgrade(s, u.id);
+      }
+      if (m.autoRefactor && s.autoRefactor) {
+        const d = debtPct(s);
+        if (d > s.refactorTarget + 0.01) setRefactor(s, s.refactor + 0.05);
+        else if (d < s.refactorTarget - 0.01) setRefactor(s, s.refactor - 0.05);
+      }
+    }
+    if (m.autoBug && s.autoBug) for (const b of [...s.bugs]) if (s.t - b.born > 8) squash(s, b.id);
 
     // progressive reveal
     if (s.written >= 10) reveal(s, 'contracts', 'A client wants a small job done. Open clients.ts.');
@@ -707,10 +920,17 @@
     if (s.written >= 60 && debtPct(s) >= 0.06) reveal(s, 'debt', 'Your code has bugs now. That is tech debt. See PROBLEMS.');
     if (s.revealed.ship && saturation(s) >= 0.4) reveal(s, 'markets', 'Your market is getting crowded. Open market.ts.');
     if (valuation(s) >= exitNeed(s) * 0.3) reveal(s, 'exit', 'Buyers are interested in your company. Open exit.ts.');
+    if (UPGRADES.some((u) => u.cat === 'automation' && s.done[u.id]) || m.autoShip || m.autoHire) reveal(s, 'workflows', 'Automation is online. Open .github/workflows.yml.');
+    if (s.t >= 300) reveal(s, 'stats', null);
     for (const u of UPGRADES) upgradeVisible(s, u);
     achTimer += dt;
     if (achTimer >= 1) { achTimer = 0; checkAchievements(s); }
   }
+
+  function goalRewardText(r) {
+    return [r.money ? `+$${fmt(r.money)}` : '', r.loc ? `+${fmt(r.loc)} LoC` : '', r.rep ? `+${fmt(r.rep)} Rep` : ''].filter(Boolean).join(', ');
+  }
+  const goalReward = (s) => (GOALS[s.goal] ? goalRewardText(GOALS[s.goal].reward(s)) : '');
 
   function fmt(n) {
     if (!isFinite(n)) return '∞';
@@ -728,10 +948,10 @@
   }
 
   const api = {
-    ENGINEERS, SUPPORT, ROLES, OFFICES, MARKETS, UPGRADES, FEATURES, PERKS, ACHIEVEMENTS, MIN_SHIP, EXIT_VALUATION,
+    ENGINEERS, SUPPORT, ROLES, OFFICES, MARKETS, UPGRADES, FEATURES, PERKS, ACHIEVEMENTS, GOALS, DECISIONS, CHALLENGES, MIN_SHIP, EXIT_VALUATION,
     createState, tick, click, ship, canShip, hotfix, claimViral, hire, bulk, promote, promoteCost, nextLevel, letGo, moveOffice, buyMarket,
     upgradeVisible, canAfford, buyUpgrade, featureState, featureCost, buyFeature, buyPerk,
-    deliver, contractOk, setRefactor, exit, checkAchievements, bestEngineer, touch,
+    deliver, contractOk, setRefactor, exit, checkAchievements, bestEngineer, touch, squash, decide, startChallenge, goalReward, tempMult,
     mods, rates, mrr, baseMrr, saturation, shipGain, shipRep, launchPay, debtPct, quality, clickValue, flowMult, seats, headcount,
     exitNeed, staffCost, roleUnlocked, staffBug, teamBug, valuation, fpGain, incidentChance, versionStr, cap, deployTime,
     officeCost, marketCost, isSupport, fmt,

@@ -126,6 +126,44 @@ button { font: inherit; color: inherit; }
 .banner .txt { flex: 1; min-width: 0; }
 .banner .txt b { display: block; }
 .banner .bar { height: 3px; margin-top: 4px; }
+.banner.decide { background: var(--rep-soft); color: var(--fg); flex-direction: column; align-items: stretch; }
+.banner.decide b { color: var(--rep); }
+.banner .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.banner .opt { display: flex; flex-direction: column; gap: 3px; }
+.banner .opt .btn { justify-content: center; }
+.banner .opt small { font-size: 11.5px; color: var(--muted); text-align: center; }
+.bugs { position: absolute; inset: 0; pointer-events: none; }
+.bug { position: absolute; pointer-events: auto; font-size: 22px; line-height: 1; cursor: crosshair; animation: crawl 1.4s ease-in-out infinite alternate; filter: drop-shadow(0 1px 1px rgb(0 0 0 / .25)); }
+.bug.old { animation-duration: .35s; }
+@keyframes crawl { from { transform: translate(0, 0) rotate(-12deg); } to { transform: translate(14px, -6px) rotate(14deg); } }
+.goal { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; min-width: 0; }
+.goal .tag { font-family: var(--f-mono); font-size: 10.5px; font-weight: 700; color: var(--rep); background: var(--rep-soft); padding: 1px 6px; border-radius: 4px; flex: none; }
+.goal .gt { flex: 1; min-width: 0; font-weight: 600; }
+.goal .gr { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.bar.thin { height: 4px; }
+.wfrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; padding: 11px 12px; border-top: 1px solid var(--line); }
+.wfrow:first-child { border-top: 0; }
+.wfrow.off { background: var(--raise); color: var(--muted); }
+.wfrow h3 { margin: 0; font-family: var(--f-mono); font-size: 13px; font-weight: 700; }
+.wfrow .note { font-size: 12.5px; color: var(--muted); }
+.wfrow .full { grid-column: 1 / -1; }
+.wfrow input[type=range] { width: 100%; accent-color: var(--accent); }
+.switch { all: unset; cursor: pointer; font-family: var(--f-mono); font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--raise); color: var(--muted); }
+.switch[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
+.switch:focus-visible { outline: 2px solid var(--accent); }
+.statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
+.statgrid .card { gap: 4px; }
+textarea.box { width: 100%; min-height: 70px; resize: vertical; font-family: var(--f-mono); font-size: 11.5px; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--code-bg); color: var(--fg); }
+.todo { display: flex; flex-direction: column; gap: 2px; font-family: var(--f-mono); font-size: 13px; }
+.todo div { display: flex; gap: 10px; padding: 5px 8px; border-radius: 6px; }
+.todo .done { color: var(--muted); text-decoration: line-through; }
+.todo .now { background: var(--rep-soft); color: var(--fg); font-weight: 700; }
+.todo .later { color: var(--faint); }
+.todo .rw { margin-left: auto; font-weight: 400; color: var(--muted); text-decoration: none; }
+.log .goal b { color: var(--rep); }
+.runbtn.shipped { animation: shipped .6s ease-out; }
+@keyframes shipped { 0% { box-shadow: 0 0 0 0 var(--accent); } 100% { box-shadow: 0 0 0 14px transparent; } }
+.floaty.money { color: var(--money); }
 
 /* ---------- open file view ---------- */
 .view { grid-area: view; }
@@ -294,8 +332,10 @@ details.installed ul { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; c
     <div id="banners"></div>
     <button class="editor" id="editor" data-act="click" aria-label="Write code">
       <div class="code" id="code"></div>
+      <div class="bugs" id="bugs"></div>
     </button>
     <div class="wfoot">
+      <div id="goal"></div>
       <div class="row"><strong>Write code</strong><span class="val" id="click-val"></span></div>
       <div class="flowbar"><div id="flow-bar"></div></div>
       <div class="row"><span class="sub" id="flow-txt"></span><span class="sub" id="flow-hint"></span></div>
@@ -321,17 +361,24 @@ details.installed ul { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; c
 (() => {
 const G = window.GitRich;
 const $ = (s) => document.querySelector(s);
-const fmt = G.fmt;
+let notation = 'short';
+const fmt = (n) => (notation === 'sci' && Math.abs(n) >= 1e6 ? n.toExponential(2).replace('e+', 'e') : G.fmt(n));
 const money = (n) => '$' + fmt(n);
 const pct = (x) => Math.round(x * 100) + '%';
 const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const SAVE_KEY = 'gitrich-proto-v3';
+const SAVE_KEY = 'gitrich-proto-v4';
 const UI_KEY = 'gitrich-ui-v3';
 
 let S = load();
 let UI = loadUI();
 let speed = 1;
-const armed = { exit: 0, reset: 0 };
+notation = UI.notation || 'short';
+function applyTheme() {
+  if (UI.theme === 'light' || UI.theme === 'dark') document.documentElement.dataset.theme = UI.theme;
+  else delete document.documentElement.dataset.theme;
+}
+applyTheme();
+const armed = { exit: 0, reset: 0, ch: 0, chId: null };
 let duckClicks = 0;
 
 function load() {
@@ -414,11 +461,31 @@ const FILES = [
   { id: 'clients', folder: 'business', name: 'clients.ts', show: () => S.revealed.contracts, badge: () => { const n = S.contracts.filter((c) => G.contractOk(S, c)).length; return n ? [n, 'warn'] : S.contracts.length ? [S.contracts.length, 'dim'] : null; } },
   { id: 'exit', folder: 'business', name: 'exit.ts', show: () => S.revealed.exit, badge: () => (G.valuation(S) >= G.exitNeed(S) ? ['$', 'warn'] : null) },
   { id: 'perks', folder: 'founder', name: 'perks.ts', show: () => S.revealed.founder, badge: () => { const n = G.PERKS.filter((p) => !S.perks[p.id] && S.fp >= p.cost).length; return n ? [n, ''] : null; } },
-  { id: 'achievements', folder: '', name: 'ACHIEVEMENTS.md', md: true, show: () => Object.keys(S.ach).length >= 3, badge: () => [`${Object.keys(S.ach).length}/${G.ACHIEVEMENTS.length}`, 'dim'] },
+  { id: 'challenges', folder: 'founder', name: 'challenges.ts', show: () => S.exits >= 1 || !!S.challenge, badge: () => (S.challenge ? ['⚑', 'warn'] : null) },
+  { id: 'workflows', folder: '.github', name: 'workflows.yml', ico: 'YML', show: () => S.revealed.workflows, badge: () => { const n = activeBots().length; return n ? [n, 'dim'] : null; } },
+  { id: 'todo', folder: '', name: 'TODO.md', ico: 'MD', md: true, show: () => true, badge: () => [`${S.goal}/${G.GOALS.length}`, 'dim'] },
+  { id: 'achievements', folder: '', name: 'ACHIEVEMENTS.md', ico: 'MD', md: true, show: () => Object.keys(S.ach).length >= 3, badge: () => [`${Object.keys(S.ach).length}/${G.ACHIEVEMENTS.length}`, 'dim'] },
+  { id: 'stats', folder: '', name: 'stats.md', ico: 'MD', md: true, show: () => S.revealed.stats, badge: () => null },
+  { id: 'settings', folder: '', name: 'settings.json', ico: '{}', md: true, show: () => true, badge: () => null },
 ];
+const BOTS = [
+  { id: 'autoShip', name: 'ci-cd', title: 'CI/CD Pipeline', note: 'Ships releases on its own while debt is under the limit.', has: () => G.mods(S).autoShip, from: 'the CI/CD Pipeline upgrade' },
+  { id: 'autoDeliver', name: 'zapier', title: 'Zapier Flows', note: 'Delivers client work as soon as you have the code.', has: () => G.mods(S).autoDeliver, from: 'the Zapier Flows upgrade' },
+  { id: 'autoRefactor', name: 'refactor-bot', title: 'Refactor Bot', note: 'Moves the refactoring slider to hold debt near the target.', has: () => G.mods(S).autoRefactor, from: 'the Refactor Bot upgrade' },
+  { id: 'autoUpgrade', name: 'dependabot', title: 'Dependabot', note: 'Installs any upgrade that costs under 10% of what you have.', has: () => G.mods(S).autoUpgrade, from: 'the Dependabot upgrade' },
+  { id: 'autoBug', name: 'bug-triage', title: 'Bug Triage Bot', note: 'Squashes bugs before they escape.', has: () => G.mods(S).autoBug, from: 'the Bug Triage Bot upgrade' },
+  { id: 'autoHire', name: 'recruiting', title: 'Recruiting Pipeline', note: 'Hires the best engineer whenever a seat is free.', has: () => G.mods(S).autoHire, from: 'the Recruiting Pipeline upgrade or the Auto-Recruiter perk' },
+];
+const activeBots = () => BOTS.filter((b) => b.has() && S[b.id]);
 const visibleFiles = () => FILES.filter((f) => f.show());
 
 /* ---------- actions ---------- */
+function floaty(text, x, y, cls) {
+  const f = document.createElement('div');
+  f.className = 'floaty ' + (cls || ''); f.textContent = text;
+  f.style.left = x + 'px'; f.style.top = y + 'px';
+  document.body.appendChild(f); setTimeout(() => f.remove(), 800);
+}
 function act(el, e) {
   const a = el.dataset.act, arg = el.dataset.arg;
   switch (a) {
@@ -433,7 +500,45 @@ function act(el, e) {
       document.body.appendChild(f); setTimeout(() => f.remove(), 800);
       break;
     }
-    case 'ship': G.ship(S, Math.random); break;
+    case 'ship': {
+      const sales = G.launchPay(S);
+      if (G.ship(S, Math.random)) {
+        el.classList.remove('shipped'); void el.offsetWidth; el.classList.add('shipped');
+        const r = el.getBoundingClientRect();
+        floaty('+' + money(sales), r.left + r.width / 2, r.bottom + 14, 'money');
+      }
+      break;
+    }
+    case 'squash': {
+      const pay = G.squash(S, Number(arg));
+      if (pay) floaty('+' + money(pay), (e && e.clientX) || 0, ((e && e.clientY) || 0) - 10, 'money');
+      break;
+    }
+    case 'decide': G.decide(S, arg); break;
+    case 'toggle': S[arg] = !S[arg]; break;
+    case 'challenge':
+      if (armed.chId === arg && Date.now() - armed.ch < 4000) { const n = G.startChallenge(S, arg); if (n) { S = n; armed.chId = null; save(); } }
+      else { armed.chId = arg; armed.ch = Date.now(); }
+      break;
+    case 'notation': UI.notation = notation = arg; break;
+    case 'theme': UI.theme = arg; applyTheme(); break;
+    case 'export': {
+      const box = $('#export-box');
+      box.value = btoa(unescape(encodeURIComponent(JSON.stringify({ savedAt: Date.now(), state: Object.assign({}, S, { events: [] }) }))));
+      box.select();
+      try { navigator.clipboard.writeText(box.value).then(() => toast('Save copied to the clipboard.'), () => toast('Save text is selected. Copy it with Ctrl+C.')); } catch (_) { toast('Save text is selected. Copy it with Ctrl+C.'); }
+      break;
+    }
+    case 'import': {
+      try {
+        const data = JSON.parse(decodeURIComponent(escape(atob($('#import-box').value.trim()))));
+        if (!data.state || typeof data.state.loc !== 'number') throw new Error('bad');
+        S = Object.assign(G.createState({ perks: data.state.perks }), data.state);
+        S.events = []; S.rev++;
+        toast('Save loaded.', 'reveal');
+      } catch (_) { toast('That does not look like a Git Rich save. Paste the full text from Export.', 'bad'); }
+      break;
+    }
     case 'hotfix': G.hotfix(S); break;
     case 'viral': G.claimViral(S); break;
     case 'open': UI.file = arg; UI.opened[arg] = true; break;
@@ -471,7 +576,7 @@ document.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
   const el = e.target.closest('[data-act]');
   if (!el || el.disabled) return;
-  if (el.dataset.act === 'click') e.preventDefault();
+  if (el.dataset.act === 'click' || el.dataset.act === 'squash') e.preventDefault();
   act(el, e);
 });
 document.addEventListener('click', (e) => {
@@ -482,6 +587,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('input', (e) => {
   if (e.target.id === 'refactor') G.setRefactor(S, Number(e.target.value) / 100);
   if (e.target.id === 'autodebt') S.autoShipDebt = Number(e.target.value) / 100;
+  if (e.target.id === 'reftarget') S.refactorTarget = Number(e.target.value) / 100;
 });
 
 /* ---------- keyed rendering ---------- */
@@ -523,7 +629,7 @@ function renderExplorer() {
       const b = f.badge();
       const fresh = explorerInit && !shownFiles.has(f.id);
       html += `<button class="file ${f.folder ? '' : 'root'} ${fresh ? 'fresh' : ''}" style="${f.folder ? 'padding-left:42px' : 'padding-left:28px'}" data-act="open" data-arg="${f.id}" aria-current="${UI.file === f.id}">
-        <span class="ico ${f.md ? 'md' : ''}">${f.md ? 'MD' : 'TS'}</span><span class="name">${f.name}</span>
+        <span class="ico ${f.md ? 'md' : ''}">${f.ico || 'TS'}</span><span class="name">${f.name}</span>
         ${!UI.opened[f.id] ? '<span class="u" title="New">U</span>' : b ? `<span class="badge ${b[1]}">${b[0]}</span>` : ''}</button>`;
     }
     for (const f of files) shownFiles.add(f.id);
@@ -537,11 +643,22 @@ function renderWrite() {
   $('#flow-bar').style.width = S.flow + '%';
   $('#flow-txt').textContent = `flow ×${G.flowMult(S).toFixed(2)}`;
   $('#flow-hint').textContent = S.flow < 20 ? 'click or type steadily to build flow' : S.flow > 95 ? 'in the zone' : '';
-  const inc = S.incident, vir = S.viral;
-  region('banners', `${!!inc}|${!!vir}`, () => `
+  const g = G.GOALS[S.goal];
+  region('goal', 'g' + S.goal, () => g
+    ? `<div class="goal"><span class="tag">TODO</span><span class="gt">${g.text}</span><span class="gr" id="goal-rw"></span></div><div class="bar rep thin"><div id="goal-bar"></div></div>`
+    : '<div class="goal"><span class="tag">TODO</span><span class="gt">Everything on the list is done. Sell the company when you are ready.</span></div>');
+  if (g) { const [c, t] = g.prog(S); $('#goal-bar').style.width = fillPct(c, t); $('#goal-rw').textContent = G.goalReward(S); }
+  region('bugs', 'b' + S.bugs.map((b) => b.id + (S.t - b.born > 10 ? 'o' : '')).join(','), () => S.bugs.map((b) =>
+    `<span class="bug ${S.t - b.born > 10 ? 'old' : ''}" data-act="squash" data-arg="${b.id}" style="left:${6 + b.x * 80}%;top:${8 + b.y * 70}%" title="Squash this bug before it escapes">🐛</span>`).join(''));
+  const inc = S.incident, vir = S.viral, dec = S.decision && G.DECISIONS.find((x) => x.id === S.decision.id);
+  region('banners', `${!!inc}|${!!vir}|${dec ? dec.id : ''}`, () => `
+    ${dec ? `<div class="banner decide"><div class="txt"><b>${dec.title}</b> ${dec.text}<div class="bar rep"><div id="dec-bar"></div></div></div>
+      <div class="opts"><div class="opt"><button class="btn rep" data-act="decide" data-arg="a"><span>${dec.a[0]}</span></button><small>${dec.a[1]}</small></div>
+      <div class="opt"><button class="btn ghost" data-act="decide" data-arg="b"><span>${dec.b[0]}</span></button><small>${dec.b[1]}</small></div></div></div>` : ''}
     ${inc ? `<div class="banner bad"><div class="txt"><b>Incident in production: income ×0.5</b><span id="inc-why"></span><div class="bar bad"><div id="inc-bar"></div></div></div><button class="btn danger" data-act="hotfix"><span>Hotfix</span><span class="num" id="inc-left"></span></button></div>` : ''}
     ${vir ? `<div class="banner good"><div class="txt"><b>Your app is trending!</b>Income ×${G.mods(S).viralBoost} for 30 s and a Reputation boost.<div class="bar money"><div id="vir-bar"></div></div></div><button class="btn money" data-act="viral"><span>Ride the wave</span><span class="num" id="vir-left"></span></button></div>` : ''}`);
   if (inc) { $('#inc-why').textContent = inc.why; $('#inc-left').textContent = inc.left + '×'; $('#inc-bar').style.width = (100 - inc.t / G.mods(S).incDur * 100) + '%'; }
+  if (dec) $('#dec-bar').style.width = Math.max(0, (S.decision.until - S.t) / 30 * 100) + '%';
   if (vir) { const l = Math.max(0, vir.until - S.t); $('#vir-left').textContent = Math.ceil(l) + 's'; $('#vir-bar').style.width = l / 12 * 100 + '%'; }
 }
 
@@ -590,7 +707,7 @@ const VIEWS = {
   upgrades: {
     key: () => { const v = G.UPGRADES.filter((u) => G.upgradeVisible(S, u)); return ['u', UI.upCat, Object.keys(S.done).length, v.map((u) => u.id + G.canAfford(S, u.cost)).join(',')].join('|'); },
     html: () => {
-      const cats = [['all', 'All'], ['roles', 'Roles'], ['tools', 'Tools'], ['process', 'Process'], ['people', 'People'], ['growth', 'Growth'], ['clients', 'Clients']];
+      const cats = [['all', 'All'], ['roles', 'Roles'], ['tools', 'Tools'], ['process', 'Process'], ['people', 'People'], ['growth', 'Growth'], ['clients', 'Clients'], ['automation', 'Automation']];
       const vis = G.UPGRADES.filter((u) => G.upgradeVisible(S, u) && (UI.upCat === 'all' || u.cat === UI.upCat)).sort((a, b) => costHave(b.cost) - costHave(a.cost));
       const owned = G.UPGRADES.filter((u) => S.done[u.id]);
       const count = (c) => G.UPGRADES.filter((u) => G.upgradeVisible(S, u) && (c === 'all' || u.cat === c)).length;
@@ -675,6 +792,56 @@ const VIEWS = {
       <div class="cards">${G.PERKS.map((p) => `<div class="card ${S.perks[p.id] ? 'done' : ''}"><div class="top"><span class="t">${p.name}</span><span class="pill rep">${p.cost} pt</span></div><span class="d">${p.desc}</span>
         ${S.perks[p.id] ? '<span class="pill good">owned</span>' : `<button class="btn rep" data-act="perk" data-arg="${p.id}" ${S.fp >= p.cost ? '' : 'disabled'}><span>Unlock</span><span class="num">${p.cost} pt</span></button>`}</div>`).join('')}</div>`,
   },
+  todo: {
+    key: () => 'todo|' + S.goal,
+    html: () => `<div class="vhead"><div><div class="cm-line"># TODO.md</div><h2>TODO</h2><p>One goal at a time. Each finished goal pays a reward right away. The list starts over with every new company.</p></div><span class="pill rep">${S.goal} / ${G.GOALS.length}</span></div>
+      <div class="todo">${G.GOALS.map((g, i) => `<div class="${i < S.goal ? 'done' : i === S.goal ? 'now' : 'later'}"><span>${i < S.goal ? '[x]' : '[ ]'}</span><span>${i <= S.goal + 2 ? g.text : '…'}</span>${i === S.goal ? `<span class="rw">${G.goalReward(S)}</span>` : ''}</div>`).join('')}</div>`,
+  },
+  workflows: {
+    key: () => 'wf|' + BOTS.map((b) => +b.has() + '' + +!!S[b.id]).join(''),
+    html: () => `<div class="vhead"><div><div class="cm-line"># .github/workflows.yml</div><h2>Workflows</h2><p>Bots that do routine work for you. Each one comes from an upgrade or a perk. Switch them off any time.</p></div><span class="pill good">${activeBots().length} running</span></div>
+      <div class="roles">${BOTS.map((b) => b.has() ? `<div class="wfrow"><div><h3>${b.name}:</h3><div class="note">${b.note}</div></div>
+        <button class="switch" data-act="toggle" data-arg="${b.id}" aria-pressed="${!!S[b.id]}">${S[b.id] ? 'on' : 'off'}</button>
+        ${b.id === 'autoShip' ? `<label class="full kv" for="autodebt"><span>only while debt is under</span><b id="ad-lbl2"></b></label><input class="full" type="range" id="autodebt" min="5" max="40" step="1" value="${Math.round(S.autoShipDebt * 100)}">` : ''}
+        ${b.id === 'autoRefactor' ? `<label class="full kv" for="reftarget"><span>hold debt near</span><b id="rt-lbl"></b></label><input class="full" type="range" id="reftarget" min="2" max="30" step="1" value="${Math.round(S.refactorTarget * 100)}">` : ''}</div>`
+        : `<div class="wfrow off"><div><h3># ${b.name}</h3><div class="note">Not installed. Comes from ${b.from}.</div></div><span class="pill">off</span></div>`).join('')}</div>`,
+    live: () => { if ($('#ad-lbl2')) $('#ad-lbl2').textContent = pct(S.autoShipDebt); if ($('#rt-lbl')) $('#rt-lbl').textContent = pct(S.refactorTarget); },
+  },
+  challenges: {
+    key: () => ['ch', S.challenge, Object.keys(S.chDone).join(','), armed.chId && Date.now() - armed.ch < 4000 ? armed.chId : ''].join('|'),
+    html: () => `<div class="vhead"><div><div class="cm-line">// founder/challenges.ts</div><h2>Challenges</h2><p>Start a company under a hard rule. Reach the goal to earn a permanent reward. Starting one ends your current company without Founder Points.</p></div>
+      <span class="pill rep">${Object.keys(S.chDone).length} / ${G.CHALLENGES.length} done</span></div>
+      <div class="cards">${G.CHALLENGES.map((c) => {
+        const active = S.challenge === c.id, done = S.chDone[c.id], isArmed = armed.chId === c.id && Date.now() - armed.ch < 4000;
+        return `<div class="card ${done ? 'done' : ''}"><div class="top"><span class="t">${c.name}</span>${done ? '<span class="pill good">done</span>' : active ? '<span class="pill money">active</span>' : ''}</div>
+          <span class="d"><b>Rule:</b> ${c.rule}<br><b>Goal:</b> ${money(c.goal)} valuation<br><b>Reward:</b> ${c.reward}</span>
+          ${active ? `<div class="bar money"><div data-ch="${c.id}"></div></div>` : done ? '' : `<button class="btn ${isArmed ? 'danger' : 'rep'}" data-act="challenge" data-arg="${c.id}" ${S.challenge ? 'disabled' : ''}><span>${isArmed ? 'Click again to start' : 'Start challenge'}</span></button>`}</div>`;
+      }).join('')}</div>`,
+    live: () => { if (S.challenge) { const c = G.CHALLENGES.find((x) => x.id === S.challenge); const el = document.querySelector(`[data-ch="${c.id}"]`); if (el) el.style.width = fillPct(G.valuation(S), c.goal); } },
+  },
+  stats: {
+    key: () => 'st|' + Math.floor(S.t / 2),
+    html: () => {
+      const R = G.rates(S), m = G.mods(S);
+      const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+      const roles = G.ENGINEERS.filter((d) => R.byRole[d.id]).map((d) => kv(d.name, fmt(R.byRole[d.id]) + ' LoC/s (' + pct(R.byRole[d.id] / Math.max(1, R.team)) + ')')).join('') || kv('No engineers yet', '—');
+      return `<div class="vhead"><div><div class="cm-line"># stats.md</div><h2>Statistics</h2><p>Where your code and money come from.</p></div></div>
+      <div class="statgrid">
+        <div class="card"><span class="t">Code per second</span>${roles}${kv('Your clicks', '+' + fmt(G.clickValue(S)) + ' per click')}${kv('Spent on refactoring', pct(S.refactor))}</div>
+        <div class="card"><span class="t">Income multipliers</span>${kv('Market filled', pct(G.saturation(S)))}${kv('Tech debt', '×' + G.quality(S).toFixed(2))}${kv('Product upgrades', '×' + m.mrr.toFixed(2))}${kv('Founder Points + achievements', '×' + m.prestige.toFixed(2))}${S.dilution < 1 ? kv('Investor dilution', '×' + S.dilution.toFixed(2)) : ''}${kv('Right now', money(G.mrr(S)) + '/s')}</div>
+        <div class="card"><span class="t">This company</span>${kv('Time', Math.floor(S.t / 60) + ' min')}${kv('Releases', S.stats.ships)}${kv('Client jobs', S.stats.contracts)}${kv('Incidents', S.stats.incidents)}${kv('Bugs squashed / escaped', S.stats.bugs + ' / ' + S.stats.bugsEscaped)}${kv('Decisions', S.stats.decisions)}${kv('Money earned', money(S.stats.runMoney))}</div>
+        <div class="card"><span class="t">All time</span>${kv('Companies sold', S.exits)}${kv('Total sold for', money(S.soldTotal))}${kv('Clicks', fmt(S.life.clicks))}${kv('Releases', fmt(S.life.ships))}${kv('Client jobs', fmt(S.life.contracts))}${kv('Bugs squashed', fmt(S.life.bugs))}${kv('Money earned', money(S.life.money))}</div>
+      </div>`;
+    },
+  },
+  settings: {
+    key: () => 'set|' + notation + '|' + (UI.theme || 'system'),
+    html: () => `<div class="vhead"><div><div class="cm-line">// settings.json</div><h2>Settings</h2><p>Your game saves in this browser every few seconds. Export a copy to move it or keep it safe.</p></div></div>
+      <div class="card"><span class="t">"numberFormat"</span><div class="chips">${[['short', '1.23M'], ['sci', '1.23e6']].map(([k, l]) => `<button class="chip" data-act="notation" data-arg="${k}" aria-pressed="${notation === k}">${l}</button>`).join('')}</div></div>
+      <div class="card"><span class="t">"theme"</span><div class="chips">${['system', 'light', 'dark'].map((k) => `<button class="chip" data-act="theme" data-arg="${k}" aria-pressed="${(UI.theme || 'system') === k}">${k}</button>`).join('')}</div></div>
+      <div class="card"><span class="t">"export"</span><textarea class="box" id="export-box" readonly aria-label="Exported save"></textarea><button class="btn ghost" data-act="export"><span>Export and copy</span></button></div>
+      <div class="card"><span class="t">"import"</span><textarea class="box" id="import-box" placeholder="Paste a save here" aria-label="Save to import"></textarea><button class="btn ghost" data-act="import"><span>Load this save</span></button></div>`,
+  },
   achievements: {
     key: () => 'a|' + Object.keys(S.ach).length,
     html: () => `<div class="vhead"><div><div class="cm-line"># ACHIEVEMENTS.md</div><h2>Achievements</h2><p>Each one gives +1% code and income, forever.</p></div><span class="pill good">${Object.keys(S.ach).length} / ${G.ACHIEVEMENTS.length}</span></div>
@@ -697,13 +864,14 @@ function renderPanel() {
     <button class="ptab" role="tab" data-act="ptab" data-arg="terminal" aria-selected="${UI.ptab === 'terminal'}">Terminal</button>
     ${S.revealed.debt ? `<button class="ptab" role="tab" data-act="ptab" data-arg="problems" aria-selected="${UI.ptab === 'problems'}">Problems <span class="badge ${sev(d) === 'good' ? '' : sev(d)}">${pct(d)} debt</span></button>` : ''}`);
   if (UI.ptab === 'problems' && S.revealed.debt) {
-    region('pbody', 'problems', () => `<div class="problems">
+    region('pbody', 'problems|' + (G.mods(S).autoRefactor && S.autoRefactor) + S.refactorTarget, () => `<div class="problems">
       <div class="col"><p class="hint">Fast, sloppy code piles up tech debt. Debt lowers your income and makes incidents more likely. Put part of the team on refactoring to pay it down.</p>
         <div class="bar"><div id="debt-bar"></div></div>
         <div class="kv"><span>Tech debt</span><b id="debt-pct"></b></div><div class="kv"><span>Income multiplier</span><b id="debt-q"></b></div></div>
       <div class="col"><label for="refactor" class="kv"><span>Team time on refactoring</span><b id="ref-lbl"></b></label>
         <input type="range" id="refactor" min="0" max="90" step="5" value="${Math.round(S.refactor * 100)}">
         <div class="ends"><span>All features</span><span>Mostly cleanup</span></div>
+        ${G.mods(S).autoRefactor && S.autoRefactor ? `<p class="hint">Refactor Bot is holding debt near ${pct(S.refactorTarget)} (change it in workflows.yml).</p>` : ''}
         <div class="kv"><span>Debt per second</span><b id="debt-rate"></b></div><div class="kv"><span>Big-team bugs (Brooks's law)</span><b id="debt-team"></b></div>
         ${G.mods(S).autoShip ? `<label for="autodebt" class="kv"><span>Auto-ship only under</span><b id="ad-lbl"></b></label><input type="range" id="autodebt" min="5" max="40" step="1" value="${Math.round(S.autoShipDebt * 100)}">` : ''}</div></div>`);
     const R = G.rates(S);
@@ -737,11 +905,12 @@ function renderStatus() {
   if (S.revealed.rep) items.push(`<span class="it"><span class="k">★ Rep</span><span id="st-rep"></span></span>`);
   if (S.revealed.debt) items.push(`<span class="it ${sev(d) !== 'good' ? 'warn' : ''}" id="st-debt-wrap" data-act="ptab" data-arg="problems" style="cursor:pointer" title="Open Problems"><span class="k">⚠ debt</span><span id="st-debt"></span></span>`);
   if (S.fp || S.exits) items.push(`<span class="it"><span class="k">FP</span>${S.fp}</span>`);
+  if (S.challenge) items.push(`<span class="it warn" data-act="open" data-arg="challenges" style="cursor:pointer">⚑ ${G.CHALLENGES.find((c) => c.id === S.challenge).name}</span>`);
   items.push('<span class="sp"></span>');
   items.push(`<span class="it"><span class="k">company #${S.exits + 1} · ${Math.floor(S.t / 60)} min</span></span>`);
   items.push(`<span class="it"><span class="k">speed</span></span>${[1, 5, 20].map((x) => `<button data-act="speed" data-arg="${x}" aria-pressed="${speed === x}">×${x}</button>`).join('')}`);
   items.push(`<button data-act="reset">${isArmedReset ? 'click again to reset' : 'reset'}</button>`);
-  region('status', [S.revealed.money, S.revealed.rep, S.revealed.debt, sev(d), S.fp, S.exits, Math.floor(S.t / 60), speed, isArmedReset, S.version.join('.')].join('|'), () => items.join(''));
+  region('status', [S.challenge, S.revealed.money, S.revealed.rep, S.revealed.debt, sev(d), S.fp, S.exits, Math.floor(S.t / 60), speed, isArmedReset, S.version.join('.')].join('|'), () => items.join(''));
   $('#st-loc').textContent = fmt(S.loc) + (R.feature ? ` (+${fmt(R.feature)}/s)` : '');
   if ($('#st-money')) $('#st-money').textContent = fmt(S.money) + (S.revealed.ship ? ` (+${fmt(G.mrr(S))}/s)` : '');
   if ($('#st-rep')) $('#st-rep').textContent = fmt(S.rep);
@@ -758,7 +927,7 @@ function frame(now) {
   let dt = Math.min(1, (now - last) / 1000) * speed;
   last = now;
   while (dt > 0) { const step = Math.min(0.1, dt); G.tick(S, step, Math.random); dt -= step; }
-  for (const ev of S.events) if (ev.kind === 'reveal' || ev.kind === 'bad') toast(ev.text, ev.kind);
+  for (const ev of S.events) if (ev.kind === 'reveal' || ev.kind === 'bad' || ev.kind === 'goal') toast(ev.text, ev.kind === 'goal' ? 'reveal' : ev.kind);
   S.events.length = 0;
   // the first incident teaches where tech debt lives
   if (S.stats.incidents > 0 && !UI.debtTip) { UI.debtTip = true; UI.ptab = 'problems'; toast('Tip: incidents come from tech debt. Use the refactoring slider in PROBLEMS to pay it down.', 'reveal'); }

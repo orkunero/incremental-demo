@@ -17,6 +17,8 @@ function bot(s, active, decide, m, run) {
     if (s.incident) G.hotfix(s);
     else { const v = G.click(s); m.clickLoc += v; }
     if (s.viral) G.claimViral(s);
+    if (s.bugs.length && Math.random() < 0.5) G.squash(s, s.bugs[0].id);
+    if (s.decision) G.decide(s, Math.random() < 0.5 ? 'a' : 'b');
   } else if (s.viral && Math.random() < 0.05) G.claimViral(s);
   if (!decide) return;
 
@@ -106,6 +108,7 @@ for (let run = 1; run <= RUNS; run++) {
     const g = b.slice(1).map((x, i) => x.t - b[i].t).sort((x, y) => x - y);
     console.log(`  window ${a / 60}-${z / 60}m: purchases=${b.length} distinct_items=${new Set(b.map((x) => x.name)).size} kinds=${[...kinds].join('/')} p90_gap=${g[Math.floor(g.length * 0.9)].toFixed(0)}s max_gap=${g[g.length - 1].toFixed(0)}s`);
   }
+  console.log(`  goals=${s.goal}/${G.GOALS.length} bugs=${s.stats.bugs} escaped=${s.stats.bugsEscaped} decisions=${s.stats.decisions}`);
   console.log(`  upgrades=${Object.keys(s.done).length}/${G.UPGRADES.length} features=${Object.keys(s.features).length}/${G.FEATURES.length} ach=${Object.keys(s.ach).length}/${G.ACHIEVEMENTS.length} ships=${s.stats.ships} contracts=${s.stats.contracts} incidents=${s.stats.incidents} support=${G.SUPPORT.map((d) => s.staff[d.id]).join('/')} exit=${m.exitAt ? fm(m.exitAt) + ' +' + m.exitFp + 'fp' : 'none'}`);
   if (!next) break;
   meta = next;
