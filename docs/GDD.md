@@ -8,8 +8,9 @@ the one every developer knows: **ship fast, or keep the code clean?**
 - **Language:** English only. **Look:** the whole game is an IDE window, light and dark theme.
 - **Playable demo:** https://claude.ai/artifact/DTgxc51UKKGSnmM1pwu5TS
   (source: `prototype/`; all numbers live in `prototype/core.js`).
-- **Status:** Draft v0.4. v0.3 felt thin (few purchases, weak upgrades, cluttered single
-  screen); v0.4 adds depth and moves to an IDE layout. History: [Playtest 01](playtest-01.md).
+- **Status:** Draft v0.5. v0.4 added depth and the IDE layout; v0.5 is a playtest pass:
+  longer runs, a gentler first 5 minutes, and fixes for two runaway loops.
+  History: [Playtest 01](playtest-01.md).
 
 ---
 
@@ -64,21 +65,23 @@ shipping and the status bar. On phones the layout stacks and the explorer become
 ## 5. Systems
 
 ### 5.1 Writing and flow
-Click = `(1 + 1% of team LoC/s) × flow × upgrades`. Flow builds with steady clicking and
+Click (or any key on the keyboard) = `(1 + 1% of team LoC/s) × flow × upgrades`. Flow builds with steady clicking and
 drains when you stop; its cap starts at ×2 and Tools upgrades raise it to ×3. Clicking is
 ~80% of output in minute 1 and settles around 30–45% for a very active player.
 
 ### 5.2 Shipping
-Ship turns all unshipped code into MRR (`0.002 $/s per line`) and Rep (`0.4·√lines·quality`).
-Deploy cooldown 8 s (upgrades cut it). First 3 releases never cause incidents.
+Ship turns all unshipped code into MRR (`0.002 $/s per line`), Rep (`0.4·√lines·quality`) and
+instant **launch sales** worth 90 s of the MRR it adds (so they shrink as the market fills).
+Deploy cooldown 12 s; upgrades cut it and *CI/CD* automates shipping.
 
 ### 5.3 Tech debt
 Each engineer type has a bug rate; bug rates × `1 + headcount/40` (Brooks's law).
-Pay it down with the refactor slider, QA Engineers, and Process upgrades.
+Pay it down with the refactor slider, QA Engineers, and Process upgrades. The first incident
+opens the Problems tab and explains the slider.
 
 ### 5.4 Team: 11 roles
 **Engineers** write code, each with an output and bug rate:
-Intern, Junior, Senior, Tech Lead, AI Copilot (needs *Machine Learning*), Principal.
+Intern (40% bugs), Junior, Senior, Tech Lead, AI Copilot (needs *Machine Learning*), Principal.
 **Support roles** write no code; each one bends a rule, and all of them take seats:
 
 | Role | Effect per person |
@@ -89,7 +92,9 @@ Intern, Junior, Senior, Tech Lead, AI Copilot (needs *Machine Learning*), Princi
 | Designer | Every market 3% bigger |
 | Site Reliability Eng. | Incidents 6% less likely and shorter |
 
-Seven offices (3 → 1,200 seats). Buy ×1 / ×10 / Max.
+Seven offices (3 → 1,200 seats). Buy ×1 / ×10 / Max. When seats are full you can **promote**
+an engineer to the next level (same price as hiring one) or **let someone go**, so an office full
+of Interns is never a dead end.
 
 ### 5.5 Upgrades: 75
 - **Role tracks (30):** every engineer type has 5 upgrades at 1/10/25/50/100 hired. They do
@@ -117,6 +122,7 @@ Public API unlocks *Integration* client jobs (bigger, pay ×2).
 
 ### 5.7 Client work
 Offers scale with your output, expire after 3 min, may require "debt ≤ X%" for a bonus.
+Pay is capped at ~45 s of your market size, so client work cannot outgrow the market.
 2 slots, more from upgrades and the API.
 
 ### 5.8 Markets
@@ -124,12 +130,14 @@ Six markets (Hometown → Multiverse). MRR saturates at `cap × (1 − e^(−raw
 expanding keeps your income and raises the cap. This is the main soft wall.
 
 ### 5.9 Events
-- **Incident** — after a release (chance `1.5·debt`) or at random when debt is high.
-  Income ×0.5 until hotfixed (12 clicks) or it fades (60 s).
+- **Incident** — after a release (chance `1.6·(debt − 8%)`, never in the first 5 releases) or at
+  random when debt is high. Income ×0.5 until hotfixed (8 clicks) or it fades (60 s).
 - **Trending** — every 2.5–5 min. Claim within 12 s: income ×2 (×3 with *Influencer Deals*) for 30 s, +10% Rep.
 
 ### 5.10 Exit and Founder perks
-- Valuation = MRR × 500. Selling needs $3M. Founder Points = `floor(√(valuation / 750K))`.
+- Valuation = MRR × 500. The first sale needs $25M; **each sale needs 4× more**, so every
+  company has to go further (new markets, offices and features).
+- Founder Points total = `floor(2 · ∛(everything ever sold / 2.5M))`; each sale adds the difference.
 - Unspent FP: +10% code and income each. 14 perks cost 1–6 FP: starting bonuses, keep
   Tools/Process upgrades, auto-hiring, cheaper hires/features/markets, more FP per sale.
 
@@ -139,23 +147,25 @@ expanding keeps your income and raises the cap. This is the main soft wall.
 
 ### 5.12 Unlock order (files)
 `clients.ts` (10 lines) → Ship button (2 deliveries or 200 lines) → `team.ts` ($15) →
-`features.ts` (2 releases) → `upgrades.ts` (first relevant upgrade) → Problems tab (6% debt) →
-`market.ts` (market 40% full) → `exit.ts` ($900K valuation) → `perks.ts` (after the first sale).
+`features.ts` (2 releases) → `upgrades.ts` (first upgrade within reach) → Problems tab (6% debt) →
+`market.ts` (market 40% full) → `exit.ts` (30% of the sale target) → `perks.ts` (after the first sale).
+`ACHIEVEMENTS.md` appears after 3 achievements. Upgrades only appear once they are within a few
+minutes of income, so the list never fills with far-off items.
 
 ## 6. Measured pacing (`prototype/sim.js`, scripted player)
 
-| Run | Perks owned | Exit (active) | Purchases | Upgrades | Features |
+| Company | Perks owned | Sold at (active) | Sold at (casual) | Upgrades | Features |
 |---|---|---|---|---|---|
-| 1 | — | 27 min | ~150 | 42 / 75 | 9 / 18 |
-| 2 | 4 | 21 min | ~140 | 42 | 9 |
-| 3 | 6 (Enterprise path) | 32 min | ~150 | 39 | 9 |
-| 4 | 7 | 23 min | ~145 | 39 | 9 |
+| 1 | — | 41 min | 45 min | 48 / 75 | 12 / 18 |
+| 2 | 4 | 28 min | 28 min | 47 | 13 |
+| 3 | 6 | 36 min | 49 min | 50 | 14 |
+| 4 | 8 | 24 min | | 52 | 14 |
+| 5 | 10 | 20 min | | 53 | 15 |
 
-- A casual player (clicks 10 min, then idles) sells the first company at ~35 min.
-- Every 5-minute window has 4–5 kinds of purchase (staff, upgrade, feature, office, market).
-- Gap between purchases (p90): 25–50 s; longest gap ~2 min.
-- About half of the upgrades and features stay locked in run 1: later runs and the other
-  fork options are needed to see everything.
+- Active = 5 clicks/s all game; casual = clicks for 10 minutes, then idles.
+- Five companies take about 2.5 hours, and some content is still locked after that.
+- First 4 minutes (real browser playtest): ~$230 in hand, 6 upgrades/features bought,
+  no incidents before the 6th release.
 
 ## 7. Later (not in the demo)
 
@@ -192,5 +202,5 @@ tools/sim.ts   pacing simulation, run in CI to catch balance regressions
 
 1. Is the IDE layout easier to read than v0.3's single screen?
 2. Do the strategy forks feel like real choices?
-3. First Exit at ~27–35 min: still too short?
+3. First sale at ~40 min, later ones 20–35 min: does that feel right?
 4. Which upgrade categories feel weakest?

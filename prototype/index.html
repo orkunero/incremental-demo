@@ -170,6 +170,9 @@ button { font: inherit; color: inherit; }
 .role h3 { margin: 0; font-size: 14px; font-weight: 700; }
 .role .note { font-size: 12.5px; color: var(--muted); }
 .role .meta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+.role .acts { display: flex; flex-direction: column; gap: 4px; align-items: stretch; min-width: 200px; }
+.role .acts .sub { display: flex; gap: 4px; }
+.role .acts .sub .btn { flex: 1 1 auto; justify-content: center; padding: 3px 8px; font-size: 11.5px; font-weight: 600; }
 .role .count { font-family: var(--f-display); font-weight: 800; font-size: 22px; color: var(--muted); min-width: 2ch; text-align: right; }
 .office { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 12px; border-radius: 10px; background: var(--raise); }
 .office .bar { grid-column: 1 / -1; }
@@ -250,6 +253,8 @@ details.installed ul { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; c
 
 /* ---------- small screens: stack, explorer becomes a tab strip ---------- */
 @media (max-width: 900px) {
+  .role { grid-template-columns: minmax(0, 1fr) auto; }
+  .role .acts { grid-column: 1 / -1; min-width: 0; }
   html, body { height: auto; }
   .ide { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto;
     grid-template-areas: "title" "status" "write" "explorer" "view" "panel"; }
@@ -407,9 +412,9 @@ const FILES = [
   { id: 'features', folder: 'product', name: 'features.ts', show: () => S.revealed.product, badge: () => { const n = G.FEATURES.filter((f) => G.featureState(S, f) === 'open' && S.loc >= G.featureCost(S, f)).length; return n ? [n, ''] : null; } },
   { id: 'market', folder: 'product', name: 'market.ts', show: () => S.revealed.markets, badge: () => { const k = G.MARKETS[S.market + 1]; return k && S.money >= G.marketCost(S) && S.rep >= k.rep ? ['!', 'warn'] : null; } },
   { id: 'clients', folder: 'business', name: 'clients.ts', show: () => S.revealed.contracts, badge: () => { const n = S.contracts.filter((c) => G.contractOk(S, c)).length; return n ? [n, 'warn'] : S.contracts.length ? [S.contracts.length, 'dim'] : null; } },
-  { id: 'exit', folder: 'business', name: 'exit.ts', show: () => S.revealed.exit, badge: () => (G.valuation(S) >= G.EXIT_VALUATION ? ['$', 'warn'] : null) },
+  { id: 'exit', folder: 'business', name: 'exit.ts', show: () => S.revealed.exit, badge: () => (G.valuation(S) >= G.exitNeed(S) ? ['$', 'warn'] : null) },
   { id: 'perks', folder: 'founder', name: 'perks.ts', show: () => S.revealed.founder, badge: () => { const n = G.PERKS.filter((p) => !S.perks[p.id] && S.fp >= p.cost).length; return n ? [n, ''] : null; } },
-  { id: 'achievements', folder: '', name: 'ACHIEVEMENTS.md', md: true, show: () => S.revealed.achievements, badge: () => [`${Object.keys(S.ach).length}/${G.ACHIEVEMENTS.length}`, 'dim'] },
+  { id: 'achievements', folder: '', name: 'ACHIEVEMENTS.md', md: true, show: () => Object.keys(S.ach).length >= 3, badge: () => [`${Object.keys(S.ach).length}/${G.ACHIEVEMENTS.length}`, 'dim'] },
 ];
 const visibleFiles = () => FILES.filter((f) => f.show());
 
@@ -435,6 +440,8 @@ function act(el, e) {
     case 'ptab': UI.ptab = arg; break;
     case 'deliver': G.deliver(S, Number(arg)); break;
     case 'hire': G.hire(S, arg, UI.buyAmt); break;
+    case 'promote': G.promote(S, arg); break;
+    case 'letgo': G.letGo(S, arg); break;
     case 'amt': UI.buyAmt = arg === 'max' ? 'max' : Number(arg); break;
     case 'office': G.moveOffice(S); break;
     case 'market': G.buyMarket(S); break;
@@ -498,7 +505,7 @@ function renderTitle() {
   const nv = S.version[1] === 9 ? `v${S.version[0] + 1}.0` : `v${S.version[0]}.${S.version[1] + 1}`;
   if (S.deployLeft > 0) { $('#ship-lbl').textContent = 'Deploying…'; $('#ship-meta').textContent = Math.ceil(S.deployLeft) + 's'; $('#ship-fill').style.width = (1 - S.deployLeft / G.deployTime(S)) * 100 + '%'; }
   else if (S.loc < G.MIN_SHIP) { $('#ship-lbl').textContent = `▶ Ship ${nv}`; $('#ship-meta').textContent = `need ${G.MIN_SHIP} LoC`; $('#ship-fill').style.width = fillPct(S.loc, G.MIN_SHIP); }
-  else { $('#ship-lbl').textContent = `▶ Ship ${nv}`; $('#ship-meta').textContent = `+${money(G.shipGain(S))}/s · +${fmt(G.shipRep(S))} Rep · ${pct(G.incidentChance(S))} risk`; }
+  else { $('#ship-lbl').textContent = `▶ Ship ${nv}`; $('#ship-meta').textContent = `+${money(G.launchPay(S))} now · +${money(G.shipGain(S))}/s · +${fmt(G.shipRep(S))} Rep · ${pct(G.incidentChance(S))} risk`; }
   const auto = G.mods(S).autoShip;
   region('auto-wrap', `a|${auto}|${S.autoShip}`, () => auto ? `<button class="chipbtn" data-act="autoship" aria-pressed="${S.autoShip}" title="Auto-ship while debt is under your limit">auto-ship ${S.autoShip ? 'on' : 'off'}</button>` : '');
 }
@@ -529,7 +536,7 @@ function renderWrite() {
   $('#click-val').textContent = '+' + fmt(G.clickValue(S)) + ' LoC';
   $('#flow-bar').style.width = S.flow + '%';
   $('#flow-txt').textContent = `flow ×${G.flowMult(S).toFixed(2)}`;
-  $('#flow-hint').textContent = S.flow < 20 ? 'click steadily to build flow' : S.flow > 95 ? 'in the zone' : '';
+  $('#flow-hint').textContent = S.flow < 20 ? 'click or type steadily to build flow' : S.flow > 95 ? 'in the zone' : '';
   const inc = S.incident, vir = S.viral;
   region('banners', `${!!inc}|${!!vir}`, () => `
     ${inc ? `<div class="banner bad"><div class="txt"><b>Incident in production: income ×0.5</b><span id="inc-why"></span><div class="bar bad"><div id="inc-bar"></div></div></div><button class="btn danger" data-act="hotfix"><span>Hotfix</span><span class="num" id="inc-left"></span></button></div>` : ''}
@@ -544,11 +551,11 @@ const VIEWS = {
     key: () => 'w',
     html: () => `<div class="welcome"><div class="cm-line">// README.md</div><h2>git <span>rich</span></h2>
       <p>You have an idea, a laptop and a garage. Turn it into a software company.</p>
-      <ol><li>Click <b>app.ts</b> on the left to write code.</li><li>New files appear in the explorer as your company grows. A green <b>U</b> means you have not opened it yet.</li>
+      <ol><li>Click <b>app.ts</b> on the left, or just type on your keyboard, to write code.</li><li>New files appear in the explorer as your company grows. A green <b>U</b> means you have not opened it yet.</li>
       <li>The <b>▶ Ship</b> button at the top turns code into income. Watch <b>Problems</b> below for tech debt.</li></ol></div>`,
   },
   team: {
-    key: () => ['t', S.office, G.headcount(S), UI.buyAmt, S.autoHire, G.ROLES.map((d) => d.id + S.staff[d.id] + G.roleUnlocked(S, d) + (G.bulk(S, d.id, UI.buyAmt).n > 0 && G.bulk(S, d.id, UI.buyAmt).total <= S.money)).join(''), S.money >= G.officeCost(S) && S.rep >= (G.OFFICES[S.office + 1] || { rep: 0 }).rep].join('|'),
+    key: () => ['t', S.office, G.headcount(S), UI.buyAmt, S.autoHire, G.ROLES.map((d) => d.id + S.staff[d.id] + G.roleUnlocked(S, d) + (S.money >= G.promoteCost(S, d.id)) + (G.bulk(S, d.id, UI.buyAmt).n > 0 && G.bulk(S, d.id, UI.buyAmt).total <= S.money)).join(''), S.money >= G.officeCost(S) && S.rep >= (G.OFFICES[S.office + 1] || { rep: 0 }).rep].join('|'),
     html: () => {
       const nx = G.OFFICES[S.office + 1];
       const full = G.headcount(S) >= G.seats(S);
@@ -558,8 +565,10 @@ const VIEWS = {
         const n = b.n || 1, total = b.n ? b.total : G.staffCost(S, d.id);
         const ok = b.n > 0 && b.total <= S.money;
         const meta = G.isSupport(d) ? '' : `<div class="meta"><span class="pill good">${fmt(d.out * G.mods(S).out[d.id])} LoC/s</span><span class="pill ${G.staffBug(S, d) >= 0.3 ? 'bad' : G.staffBug(S, d) >= 0.1 ? 'money' : 'good'}">${pct(G.staffBug(S, d))} bugs</span></div>`;
+        const nx = G.nextLevel(S, d.id);
+        const sub = S.staff[d.id] ? `<div class="sub">${nx ? `<button class="btn ghost" data-act="promote" data-arg="${d.id}" ${S.money >= G.promoteCost(S, d.id) ? '' : 'disabled'} title="Turn one ${d.name} into a ${nx.name} (same price as hiring one)">Promote ${money(G.promoteCost(S, d.id))}</button>` : ''}<button class="btn ghost" data-act="letgo" data-arg="${d.id}" title="Let one ${d.name} go to free a seat">Let go</button></div>` : '';
         return `<div class="role"><div><h3>${d.name}</h3><div class="note">${d.note}</div>${meta}</div><span class="count num">${S.staff[d.id]}</span>
-          <button class="btn" data-act="hire" data-arg="${d.id}" ${ok ? '' : 'disabled'}><span class="fill" data-fill="hire:${d.id}"></span><span>Hire${n > 1 ? ' ' + n : ''}</span><span class="num">${full ? 'no seats' : money(total)}</span></button></div>`;
+          <div class="acts"><button class="btn" data-act="hire" data-arg="${d.id}" ${ok ? '' : 'disabled'}><span class="fill" data-fill="hire:${d.id}"></span><span>Hire${n > 1 ? ' ' + n : ''}</span><span class="num">${full ? 'no seats' : money(total)}</span></button>${sub}</div></div>`;
       };
       const shownEng = []; for (const d of G.ENGINEERS) { shownEng.push(d); if (!G.roleUnlocked(S, d) && !d.needs) break; }
       const shownSup = []; for (const d of G.SUPPORT) { shownSup.push(d); if (!G.roleUnlocked(S, d)) break; }
@@ -647,17 +656,17 @@ const VIEWS = {
     live: () => { for (const c of S.contracts) { const e = document.querySelector(`[data-exp="${c.id}"]`); if (e) e.style.width = Math.max(0, (c.expires - S.t) / c.life * 100) + '%'; const f = document.querySelector(`[data-fill="c:${c.id}"]`); if (f) f.style.width = fillPct(S.loc, c.size); } },
   },
   exit: {
-    key: () => `x|${G.valuation(S) >= G.EXIT_VALUATION}|${Date.now() - armed.exit < 4000}`,
+    key: () => `x|${G.valuation(S) >= G.exitNeed(S)}|${Date.now() - armed.exit < 4000}`,
     html: () => {
-      const ok = G.valuation(S) >= G.EXIT_VALUATION, isArmed = Date.now() - armed.exit < 4000;
-      return `<div class="vhead"><div><div class="cm-line">// business/exit.ts</div><h2>Sell the company</h2><p>Valuation is your product income × 500. Selling starts a new company from zero and gives Founder Points: spend them on permanent perks, or keep them for +10% everything each.</p></div></div>
+      const ok = G.valuation(S) >= G.exitNeed(S), isArmed = Date.now() - armed.exit < 4000;
+      return `<div class="vhead"><div><div class="cm-line">// business/exit.ts</div><h2>Sell the company</h2><p>Valuation is your product income × 500. Selling starts a new company from zero and gives Founder Points: spend them on permanent perks, or keep them for +10% everything each. Every sale raises the bar: the next buyer wants a 4× bigger company.</p></div></div>
         <div class="card"><div class="kv"><span>Valuation</span><b id="ex-val"></b></div><div class="bar rep"><div id="ex-bar"></div></div>
-          <div class="kv"><span>Needed to sell</span><b>${money(G.EXIT_VALUATION)}</b></div><div class="kv"><span>Founder Points if you sell now</span><b id="ex-fp"></b></div>
+          <div class="kv"><span>Needed to sell</span><b>${money(G.exitNeed(S))}</b></div><div class="kv"><span>Founder Points if you sell now</span><b id="ex-fp"></b></div>
           <div class="kv"><span>Companies sold</span><b>${S.exits}</b></div>
           <button class="btn ${isArmed ? 'danger' : 'rep'} block" data-act="exit" ${ok ? '' : 'disabled'}><span>${isArmed ? 'Click again to sell' : 'Sell company'}</span><span class="num">${ok ? '' : 'not yet'}</span></button></div>
         <p class="cm-line">// keeps: Founder Points, perks, achievements. resets: everything else.</p>`;
     },
-    live: () => { $('#ex-val').textContent = money(G.valuation(S)); $('#ex-bar').style.width = fillPct(G.valuation(S), G.EXIT_VALUATION); $('#ex-fp').textContent = '+' + G.fpGain(S); },
+    live: () => { $('#ex-val').textContent = money(G.valuation(S)); $('#ex-bar').style.width = fillPct(G.valuation(S), G.exitNeed(S)); $('#ex-fp').textContent = '+' + G.fpGain(S); },
   },
   perks: {
     key: () => 'p|' + S.fp + '|' + Object.keys(S.perks).join(','),
@@ -726,7 +735,7 @@ function renderStatus() {
   ];
   if (S.revealed.money) items.push(`<span class="it"><span class="k">$</span><span id="st-money"></span></span>`);
   if (S.revealed.rep) items.push(`<span class="it"><span class="k">★ Rep</span><span id="st-rep"></span></span>`);
-  if (S.revealed.debt) items.push(`<span class="it ${sev(d) !== 'good' ? 'warn' : ''}" id="st-debt-wrap"><span class="k">⚠ debt</span><span id="st-debt"></span></span>`);
+  if (S.revealed.debt) items.push(`<span class="it ${sev(d) !== 'good' ? 'warn' : ''}" id="st-debt-wrap" data-act="ptab" data-arg="problems" style="cursor:pointer" title="Open Problems"><span class="k">⚠ debt</span><span id="st-debt"></span></span>`);
   if (S.fp || S.exits) items.push(`<span class="it"><span class="k">FP</span>${S.fp}</span>`);
   items.push('<span class="sp"></span>');
   items.push(`<span class="it"><span class="k">company #${S.exits + 1} · ${Math.floor(S.t / 60)} min</span></span>`);
@@ -751,13 +760,23 @@ function frame(now) {
   while (dt > 0) { const step = Math.min(0.1, dt); G.tick(S, step, Math.random); dt -= step; }
   for (const ev of S.events) if (ev.kind === 'reveal' || ev.kind === 'bad') toast(ev.text, ev.kind);
   S.events.length = 0;
+  // the first incident teaches where tech debt lives
+  if (S.stats.incidents > 0 && !UI.debtTip) { UI.debtTip = true; UI.ptab = 'problems'; toast('Tip: incidents come from tech debt. Use the refactoring slider in PROBLEMS to pay it down.', 'reveal'); }
   // open the first file automatically so a new player is never staring at an empty pane
-  if (!UI.file) { const first = visibleFiles()[0]; if (first && Object.keys(UI.opened).length === 0) { UI.file = first.id; UI.opened[first.id] = true; } }
+  if (!UI.file) { const first = visibleFiles().find((f) => !f.md); if (first && Object.keys(UI.opened).length === 0) { UI.file = first.id; UI.opened[first.id] = true; } }
   render();
   if (now > saveAt) { save(); saveAt = now + 5000; }
   requestAnimationFrame(frame);
 }
 document.addEventListener('visibilitychange', () => { if (document.hidden) save(); });
+// Type to code: any letter, number or space key writes code (held keys do not repeat).
+document.addEventListener('keydown', (e) => {
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (e.target.closest && e.target.closest('input, textarea, select')) return;
+  if (e.key.length !== 1) return;
+  if (e.key === ' ') e.preventDefault();
+  if (S.incident) G.hotfix(S); else { G.click(S); pushLine(); }
+});
 if (window.__welcome) setTimeout(() => toast(window.__welcome, 'reveal'), 300);
 render();
 requestAnimationFrame(frame);

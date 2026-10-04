@@ -7,13 +7,14 @@
   const SUPPORT_GROWTH = 1.22;
   const MIN_SHIP = 10;
   const MRR_PER_LOC = 0.002;
+  const LAUNCH_SECONDS = 90;
   const CONTRACT_PAY = 0.8;
-  const EXIT_VALUATION = 3e6;
+  const EXIT_VALUATION = 2.5e7;
   const VALUATION_MULT = 500;
 
   // ---------- roles ----------
   const ENGINEERS = [
-    { id: 'intern', name: 'Intern', cost: 15, out: 1, bug: 0.5, rep: 0, note: 'Fast and eager. Writes a lot of bugs.' },
+    { id: 'intern', name: 'Intern', cost: 15, out: 1, bug: 0.4, rep: 0, note: 'Fast and eager. Writes a lot of bugs.' },
     { id: 'junior', name: 'Junior Dev', cost: 120, out: 6, bug: 0.3, rep: 0, note: 'Solid output, still learning.' },
     { id: 'senior', name: 'Senior Dev', cost: 1400, out: 35, bug: 0.1, rep: 60, note: 'Clean code. Expensive.' },
     { id: 'lead', name: 'Tech Lead', cost: 18000, out: 200, bug: 0.05, rep: 500, note: 'Very clean code at scale.' },
@@ -254,7 +255,7 @@
       click: 1, clickPct: 0.01, flowCap: 2, flowGain: 7, flowDecay: 30, flowTeam: 0,
       mrr: 1, perLoc: 1, rep: 1, cap: 1, debtHurt: 1,
       pay: 1, contractRep: 1, slots: 2, contractTime: 1, integrations: false,
-      refactor: 0.5, deploy: 8, incident: 1, incDur: 60, hotfix: 12, postmortem: false,
+      refactor: 0.5, deploy: 12, incident: 1, incDur: 60, hotfix: 8, postmortem: false,
       viralEvery: 1, viralBoost: 2, seats: 1, autoShip: false,
       featureCost: 1, expandCost: 1, fpGain: 1, prestige: 1,
     };
@@ -331,11 +332,18 @@
     const c = cap(s);
     return c * (Math.exp(-s.mrrRaw / c) - Math.exp(-(s.mrrRaw + add) / c)) * quality(s) * mods(s).mrr * mods(s).prestige;
   }
+  // Release-day sales: 90 seconds of the income this release adds, so they shrink as the market fills up.
+  const launchPay = (s) => shipGain(s) * LAUNCH_SECONDS;
   const shipRep = (s) => 0.4 * Math.sqrt(s.loc) * quality(s) * mods(s).rep;
   const clickValue = (s) => (1 + mods(s).clickPct * rates(s).team) * flowMult(s) * mods(s).click * mods(s).prestige;
   const valuation = (s) => baseMrr(s) * VALUATION_MULT;
-  const fpGain = (s) => Math.floor(Math.sqrt(valuation(s) / 7.5e5) * mods(s).fpGain);
-  const incidentChance = (s) => (s.stats.ships < 3 ? 0 : Math.min(0.8, debtPct(s) * 1.5) * mods(s).incident);
+  // Buyers expect more from a serial founder: each sale needs a 4× bigger valuation.
+  const exitNeed = (s) => EXIT_VALUATION * Math.pow(4, s.exits);
+  // Founder Points grow with the cube root of everything you have ever sold, so each sale adds a bit less.
+  const fpTotalFor = (sold) => Math.floor(2 * Math.cbrt(sold / 2.5e6));
+  const fpGain = (s) => Math.floor(Math.max(0, fpTotalFor(s.soldTotal + valuation(s)) - fpTotalFor(s.soldTotal)) * mods(s).fpGain);
+  // No risk below 8% debt, and the first 5 releases are always safe.
+  const incidentChance = (s) => (s.stats.ships < 5 ? 0 : Math.min(0.8, Math.max(0, debtPct(s) - 0.08) * 1.6) * mods(s).incident);
   const versionStr = (s) => `v${s.version[0]}.${s.version[1]}`;
   const deployTime = (s) => mods(s).deploy;
   const officeCost = (s) => { const o = OFFICES[s.office + 1]; return o ? o.cost * mods(s).expandCost : Infinity; };
@@ -362,7 +370,7 @@
       flags: { cleanShip: false, yolo: false, speedrun: !!(meta.flags && meta.flags.speedrun), duck: !!(meta.flags && meta.flags.duck) },
       life: Object.assign({ clicks: 0, ships: 0, contracts: 0, hotfixes: 0, money: 0 }, meta.life),
       version: [0, 0],
-      fp: meta.fp || 0, fpTotal: meta.fpTotal || 0, exits: meta.exits || 0,
+      fp: meta.fp || 0, fpTotal: meta.fpTotal || 0, exits: meta.exits || 0, soldTotal: meta.soldTotal || 0,
       perks, ach: Object.assign({}, meta.ach),
       events: [], // transient: UI reads and clears
     };
@@ -404,11 +412,15 @@
     if (!canShip(s)) return false;
     const lines = s.loc;
     const repGain = shipRep(s);
+    const sales = launchPay(s);
     const d = debtPct(s);
     if (lines >= 1000 && d < 0.02) s.flags.cleanShip = true;
     if (d >= 0.4) s.flags.yolo = true;
     s.mrrRaw += lines * MRR_PER_LOC * mods(s).perLoc;
     s.rep += repGain;
+    s.money += sales;
+    s.stats.runMoney += sales;
+    s.life.money += sales;
     s.loc = 0;
     s.deployLeft = deployTime(s);
     s.version[1]++;
@@ -416,9 +428,10 @@
     s.stats.ships++;
     s.life.ships++;
     reveal(s, 'rep', null);
-    log(s, `${versionStr(s)} shipped: ${fmt(lines)} lines, +${fmt(repGain)} Rep`, 'ship');
+    log(s, `${versionStr(s)} shipped: ${fmt(lines)} lines, +$${fmt(sales)} launch sales, +${fmt(repGain)} Rep`, 'ship');
     if (s.stats.ships === 1) s.nextViral = s.t + 90;
     if (!s.incident && rng() < incidentChance(s)) startIncident(s, 'The new release broke checkout.');
+    reveal(s, 'money', null);
     return true;
   }
 
@@ -470,6 +483,29 @@
     return n;
   }
 
+  // Promote an engineer to the next unlocked level for that level's full hiring cost: the same price as a new hire, without needing a seat.
+  function nextLevel(s, id) {
+    const i = ENGINEERS.findIndex((d) => d.id === id);
+    const nx = i >= 0 ? ENGINEERS[i + 1] : null;
+    return nx && !nx.needs && roleUnlocked(s, nx) ? nx : null;
+  }
+  const promoteCost = (s, id) => { const nx = nextLevel(s, id); return nx ? staffCost(s, nx.id) : Infinity; };
+  function promote(s, id) {
+    const nx = nextLevel(s, id);
+    if (!nx || s.staff[id] < 1 || s.money < promoteCost(s, id)) return false;
+    s.money -= promoteCost(s, id);
+    s.staff[id]--;
+    s.staff[nx.id]++;
+    touch(s);
+    return true;
+  }
+  function letGo(s, id) {
+    if (!s.staff[id]) return false;
+    s.staff[id]--;
+    touch(s);
+    return true;
+  }
+
   function moveOffice(s) {
     const o = OFFICES[s.office + 1];
     if (!o || s.money < officeCost(s) || s.rep < o.rep) return false;
@@ -496,8 +532,13 @@
   function upgradeVisible(s, u) {
     if (s.done[u.id]) return false;
     if (s.seen[u.id]) return true;
-    if (u.show(s)) { s.seen[u.id] = true; reveal(s, 'upgrades', 'New upgrades available.'); return true; }
+    if (u.show(s) && withinReach(s, u.cost)) { s.seen[u.id] = true; reveal(s, 'upgrades', 'New upgrades available.'); return true; }
     return false;
+  }
+  // Show an upgrade only once it is within a few minutes of income, so the list never fills with far-off items.
+  function withinReach(s, cost) {
+    if (cost.money) return s.money * 3 + mrr(s) * 180 >= cost.money;
+    return s.loc * 3 + rates(s).feature * 180 + 60 >= cost.loc;
   }
   const canAfford = (s, cost) => (!cost.money || s.money >= cost.money) && (!cost.loc || s.loc >= cost.loc);
   function buyUpgrade(s, id) {
@@ -572,7 +613,8 @@
       client: CLIENTS[Math.floor(rng() * CLIENTS.length)],
       job: integ ? 'API integration' : JOBS[Math.floor(rng() * JOBS.length)],
       size, maxDebt,
-      pay: size * CONTRACT_PAY * bonus * m.pay * m.prestige,
+      // capped at ~45 s of your market's size, so client work cannot outgrow the market
+      pay: Math.min(size * CONTRACT_PAY, cap(s) * 45) * bonus * m.pay * m.prestige,
       rep: Math.round(Math.sqrt(size) * 0.3 * bonus * m.contractRep),
       expires: s.t + 180 * m.contractTime,
       life: 180 * m.contractTime,
@@ -582,12 +624,12 @@
   function setRefactor(s, v) { s.refactor = Math.min(0.9, Math.max(0, v)); }
 
   function exit(s) {
-    if (valuation(s) < EXIT_VALUATION) return null;
+    if (valuation(s) < exitNeed(s)) return null;
     const gain = fpGain(s);
     const keep = UPGRADES.filter((u) => s.done[u.id] && ((s.perks.playbook && u.cat === 'tools') || (s.perks.veteran && u.cat === 'process'))).map((u) => u.id);
     const flags = { speedrun: s.flags.speedrun || s.t <= 1200, duck: s.flags.duck };
     const n = createState({
-      fp: s.fp + gain, fpTotal: s.fpTotal + gain, exits: s.exits + 1, perks: s.perks,
+      fp: s.fp + gain, fpTotal: s.fpTotal + gain, exits: s.exits + 1, soldTotal: s.soldTotal + valuation(s), perks: s.perks,
       ach: s.ach, life: s.life, flags, revealed: s.revealed, feed: s.feed, keep,
     });
     log(n, `Sold the company for $${fmt(valuation(s))}. +${gain} Founder Points.`, 'reveal');
@@ -598,7 +640,7 @@
 
   function checkAchievements(s) {
     for (const a of ACHIEVEMENTS) {
-      if (!s.ach[a.id] && a.check(s)) { s.ach[a.id] = true; touch(s); reveal(s, 'achievements', null); log(s, `Achievement: ${a.name}.`, 'reveal'); }
+      if (!s.ach[a.id] && a.check(s)) { s.ach[a.id] = true; touch(s); reveal(s, 'achievements', null); log(s, `Achievement: ${a.name}${/[.!?]$/.test(a.name) ? '' : '.'}`, 'reveal'); }
     }
   }
 
@@ -641,7 +683,7 @@
     if (s.incident) {
       s.incident.t += dt;
       if (s.incident.t >= m.incDur) endIncident(s, false);
-    } else if (s.stats.ships > 3 && rng() < debtPct(s) * 0.004 * dt * m.incident) {
+    } else if (s.stats.ships > 5 && rng() < Math.max(0, debtPct(s) - 0.08) * 0.004 * dt * m.incident) {
       startIncident(s, 'Old bugs took the site down.');
     }
 
@@ -658,13 +700,13 @@
 
     // progressive reveal
     if (s.written >= 10) reveal(s, 'contracts', 'A client wants a small job done. Open clients.ts.');
-    if (s.stats.contracts >= 2 || s.written >= 200) reveal(s, 'ship', 'Idea: build your own product and ship it.');
+    if (s.stats.contracts >= 2 || s.written >= 200) reveal(s, 'ship', 'Idea: build your own product. Press ▶ Ship to release your code.');
     if (s.stats.ships >= 1) reveal(s, 'money', null);
     if (s.revealed.money && s.money >= 15) reveal(s, 'team', 'You can hire people now. Open team.ts.');
-    if (s.stats.ships >= 2) reveal(s, 'product', 'Your product can grow new features. Open product.ts.');
+    if (s.stats.ships >= 2) reveal(s, 'product', 'Your product can grow new features. Open features.ts.');
     if (s.written >= 60 && debtPct(s) >= 0.06) reveal(s, 'debt', 'Your code has bugs now. That is tech debt. See PROBLEMS.');
     if (s.revealed.ship && saturation(s) >= 0.4) reveal(s, 'markets', 'Your market is getting crowded. Open market.ts.');
-    if (valuation(s) >= EXIT_VALUATION * 0.3) reveal(s, 'exit', 'Buyers are interested in your company. Open exit.ts.');
+    if (valuation(s) >= exitNeed(s) * 0.3) reveal(s, 'exit', 'Buyers are interested in your company. Open exit.ts.');
     for (const u of UPGRADES) upgradeVisible(s, u);
     achTimer += dt;
     if (achTimer >= 1) { achTimer = 0; checkAchievements(s); }
@@ -687,11 +729,11 @@
 
   const api = {
     ENGINEERS, SUPPORT, ROLES, OFFICES, MARKETS, UPGRADES, FEATURES, PERKS, ACHIEVEMENTS, MIN_SHIP, EXIT_VALUATION,
-    createState, tick, click, ship, canShip, hotfix, claimViral, hire, bulk, moveOffice, buyMarket,
+    createState, tick, click, ship, canShip, hotfix, claimViral, hire, bulk, promote, promoteCost, nextLevel, letGo, moveOffice, buyMarket,
     upgradeVisible, canAfford, buyUpgrade, featureState, featureCost, buyFeature, buyPerk,
     deliver, contractOk, setRefactor, exit, checkAchievements, bestEngineer, touch,
-    mods, rates, mrr, baseMrr, saturation, shipGain, shipRep, debtPct, quality, clickValue, flowMult, seats, headcount,
-    staffCost, roleUnlocked, staffBug, teamBug, valuation, fpGain, incidentChance, versionStr, cap, deployTime,
+    mods, rates, mrr, baseMrr, saturation, shipGain, shipRep, launchPay, debtPct, quality, clickValue, flowMult, seats, headcount,
+    exitNeed, staffCost, roleUnlocked, staffBug, teamBug, valuation, fpGain, incidentChance, versionStr, cap, deployTime,
     officeCost, marketCost, isSupport, fmt,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

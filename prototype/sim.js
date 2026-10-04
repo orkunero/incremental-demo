@@ -50,6 +50,7 @@ function bot(s, active, decide, m, run) {
   for (const d of G.SUPPORT) {
     while (G.roleUnlocked(s, d) && s.staff[d.id] < want[d.id] && G.staffCost(s, d.id) < s.money * 0.5 && G.hire(s, d.id, 1)) buy('staff:' + d.id);
   }
+  if (G.headcount(s) >= G.seats(s)) for (const d of G.ENGINEERS) while (s.staff[d.id] > 0 && G.nextLevel(s, d.id) && G.promoteCost(s, d.id) < s.money * 0.3 && G.promote(s, d.id)) buy('promote');
   for (;;) {
     const b = G.bestEngineer(s);
     if (!b || !G.hire(s, b.id, 1)) break;
@@ -81,7 +82,7 @@ function play(meta, maxT, run) {
       nextSample += 60;
     }
     const fp = G.fpGain(s);
-    if (G.valuation(s) >= G.EXIT_VALUATION && (fp >= 4 || (s.t > 40 * 60 && fp >= 2))) {
+    if (G.valuation(s) >= G.exitNeed(s) * 1.5 || (G.valuation(s) >= G.exitNeed(s) && s.t > 45 * 60)) {
       m.exitAt = s.t; m.exitFp = fp;
       return { s, m, next: G.exit(s) };
     }
@@ -90,6 +91,7 @@ function play(meta, maxT, run) {
 }
 
 let meta = null;
+const TRACE = process.env.TRACE ? Number(process.env.TRACE) : 0;
 for (let run = 1; run <= RUNS; run++) {
   const { s, m, next } = play(meta, 120 * 60, run);
   console.log(`\n=== RUN ${run} (perks: ${Object.keys(s.perks).join(',') || '-'}) ===`);
