@@ -1,378 +1,33 @@
-<title>Git Rich</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
-<style>
-/* Layout: an IDE window. Title bar (Ship = Run) · Explorer (files appear as the company grows) · app.ts (click to write) · open file · bottom panel (Terminal = git log, Problems = tech debt) · status bar (resources). */
-:root {
-  --bg: #e7ece9; --win: #f7f9f8; --side: #eef2f0; --pane: #ffffff; --raise: #f1f5f3; --line: #d5ded9; --hover: #e3ebe7;
-  --fg: #17221d; --muted: #5d6c65; --faint: #8b9992;
-  --accent: #117a58; --accent-soft: #d4ece2; --on-accent: #ffffff;
-  --money: #9a620f; --money-soft: #f5e7cc;
-  --rep: #6744c9; --rep-soft: #e6dffa;
-  --danger: #bf3f0e; --danger-soft: #fbe1d5;
-  --warn: #a8700f;
-  --status: #117a58; --on-status: #ffffff;
-  --code-bg: #fbfcfb; --code-fg: #1f2b26; --code-dim: #9aa8a1; --code-kw: #0f7a8a; --code-str: #a3480f; --code-cm: #7c8f86; --code-fn: #6744c9;
-  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
-  --f-body: "Figtree", "Segoe UI", system-ui, sans-serif;
-  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
-  --shadow: 0 10px 40px rgb(20 40 30 / .14), 0 2px 6px rgb(20 40 30 / .08);
-}
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #0b100e; --win: #121916; --side: #151d19; --pane: #19221e; --raise: #1f2a25; --line: #2a3832; --hover: #22302a;
-  --fg: #e3ede8; --muted: #94a59d; --faint: #6b7d75;
-  --accent: #45c793; --accent-soft: #163a2c; --on-accent: #05140d;
-  --money: #e6ae50; --money-soft: #392b13;
-  --rep: #a98fff; --rep-soft: #29214a;
-  --danger: #f37c4d; --danger-soft: #3d1e11;
-  --warn: #e6ae50;
-  --status: #1c6b4f; --on-status: #e8fff5;
-  --code-bg: #121916; --code-fg: #d5e4dc; --code-dim: #546a60; --code-kw: #7fd3ad; --code-str: #f0c37a; --code-cm: #62786e; --code-fn: #b9a6ff;
-  --shadow: 0 10px 40px rgb(0 0 0 / .5), 0 2px 6px rgb(0 0 0 / .3);
-  color-scheme: dark;
-}}
-:root[data-theme="dark"] {
-  --bg: #0b100e; --win: #121916; --side: #151d19; --pane: #19221e; --raise: #1f2a25; --line: #2a3832; --hover: #22302a;
-  --fg: #e3ede8; --muted: #94a59d; --faint: #6b7d75;
-  --accent: #45c793; --accent-soft: #163a2c; --on-accent: #05140d;
-  --money: #e6ae50; --money-soft: #392b13;
-  --rep: #a98fff; --rep-soft: #29214a;
-  --danger: #f37c4d; --danger-soft: #3d1e11;
-  --warn: #e6ae50;
-  --status: #1c6b4f; --on-status: #e8fff5;
-  --code-bg: #121916; --code-fg: #d5e4dc; --code-dim: #546a60; --code-kw: #7fd3ad; --code-str: #f0c37a; --code-cm: #62786e; --code-fn: #b9a6ff;
-  --shadow: 0 10px 40px rgb(0 0 0 / .5), 0 2px 6px rgb(0 0 0 / .3);
-  color-scheme: dark;
+// Browser UI: an IDE window around the game core.
+import * as G from '../core/index.ts';
+import type { Cost, Feature, GameState, LogKind, RoleDef } from '../core/index.ts';
+import { readJSON, remove, writeJSON } from '../platform/storage.ts';
+
+interface UIState {
+  file: string | null;
+  opened: Record<string, boolean>;
+  ptab: string;
+  buyAmt: number | 'max';
+  upCat: string;
+  notation?: 'short' | 'sci';
+  theme?: string;
+  debtTip?: boolean;
 }
 
-* { box-sizing: border-box; }
-html, body { height: 100%; }
-body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14px; line-height: 1.45; padding-inline: 16px; padding-block: 16px; }
-button { font: inherit; color: inherit; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.num, .mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
 
-/* ---------- window ---------- */
-.ide { height: 100%; max-width: 1500px; margin-inline: auto; display: grid; background: var(--win); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden;
-  grid-template-columns: 200px minmax(260px, .8fr) minmax(0, 1.35fr);
-  grid-template-rows: 42px minmax(0, 1fr) minmax(150px, 28%) 28px;
-  grid-template-areas: "title title title" "explorer write view" "explorer panel panel" "status status status"; }
-.titlebar { grid-area: title; display: flex; align-items: center; gap: 12px; padding: 0 10px 0 14px; border-bottom: 1px solid var(--line); background: var(--side); min-width: 0; }
-.dots { display: flex; gap: 6px; } .dots i { width: 11px; height: 11px; border-radius: 50%; background: var(--line); }
-.wintitle { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.wintitle b { font-family: var(--f-display); font-size: 16px; font-weight: 800; color: var(--fg); letter-spacing: -.01em; margin-right: 6px; }
-.wintitle b span { color: var(--accent); }
-.titlebar .spacer { flex: 1; }
-.runbtn { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 10px; height: 30px; padding: 0 12px; border-radius: 7px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; position: relative; overflow: hidden; white-space: nowrap; }
-.runbtn:not(:disabled) .fill { display: none; }
-.runbtn:disabled { background: var(--raise); color: var(--muted); cursor: not-allowed; }
-.runbtn .fill { position: absolute; inset: 0 auto 0 0; background: var(--accent-soft); width: 0; }
-.runbtn > span { position: relative; }
-.runbtn .meta { font-family: var(--f-mono); font-weight: 500; font-size: 11.5px; opacity: .85; }
-.runbtn:focus-visible { outline: 2px solid var(--fg); }
-.chipbtn { all: unset; cursor: pointer; font-family: var(--f-mono); font-size: 11.5px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
-.chipbtn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
-.chipbtn:focus-visible { outline: 2px solid var(--accent); }
-
-/* ---------- explorer ---------- */
-.explorer { grid-area: explorer; background: var(--side); border-right: 1px solid var(--line); overflow-y: auto; padding: 8px 0; min-width: 0; }
-.ex-head { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 4px 14px 8px; }
-.folder { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); padding: 3px 14px; }
-.file { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 10px 4px 28px; font-family: var(--f-mono); font-size: 13px; color: var(--fg); }
-.file.fresh { animation: fileIn 1.6s ease-out; }
-.file:hover { background: var(--hover); }
-.file[aria-current="true"] { background: var(--accent-soft); color: var(--accent); }
-.file:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.file .ico { width: 14px; text-align: center; font-size: 10px; font-weight: 700; color: var(--code-kw); }
-.file .ico.md { color: var(--rep); }
-.file .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.file .u { font-size: 11px; font-weight: 700; color: var(--accent); }
-.file .badge { font-size: 10.5px; font-weight: 700; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; display: grid; place-items: center; background: var(--accent); color: var(--on-accent); }
-.file .badge.warn { background: var(--money); }
-.file .badge.dim { background: var(--raise); color: var(--muted); }
-.file.root { padding-left: 14px; }
-@keyframes fileIn { 0%, 40% { background: var(--accent-soft); } }
-
-/* ---------- editor tabs ---------- */
-.pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--pane); }
-.tabs { display: flex; align-items: stretch; height: 34px; background: var(--side); border-bottom: 1px solid var(--line); flex: none; overflow-x: auto; scrollbar-width: none; }
-.tab { display: flex; align-items: center; gap: 8px; padding: 0 14px; font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); border-right: 1px solid var(--line); white-space: nowrap; }
-.tab.active { background: var(--pane); color: var(--fg); box-shadow: inset 0 2px 0 var(--accent); }
-.tab .crumb { color: var(--faint); }
-
-/* ---------- app.ts ---------- */
-.write { grid-area: write; border-right: 1px solid var(--line); }
-.editor { all: unset; box-sizing: border-box; flex: 1; min-height: 0; display: flex; flex-direction: column; cursor: pointer; user-select: none; background: var(--code-bg); touch-action: manipulation; position: relative; }
-.editor:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.code { flex: 1; min-height: 120px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 0; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.65; color: var(--code-fg); }
-.code .line { white-space: pre; overflow: hidden; text-overflow: ellipsis; padding-right: 12px; }
-.code .line.new { animation: typein .18s ease-out; background: var(--hover); }
-.code .ln { color: var(--code-dim); display: inline-block; width: 4.2em; text-align: right; padding-right: 1.2em; }
-.code .kw { color: var(--code-kw); } .code .st { color: var(--code-str); } .code .cm { color: var(--code-cm); font-style: italic; } .code .fn { color: var(--code-fn); }
-@keyframes typein { from { opacity: 0; transform: translateX(-6px); } }
-.wfoot { flex: none; display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-top: 1px solid var(--line); background: var(--pane); }
-.wfoot .row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.wfoot strong { font-family: var(--f-display); font-size: 20px; font-weight: 800; letter-spacing: -.01em; }
-.wfoot .val { font-family: var(--f-mono); color: var(--accent); font-weight: 600; }
-.wfoot .sub { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
-.flowbar { height: 5px; border-radius: 5px; background: var(--raise); overflow: hidden; }
-.flowbar > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--money)); transition: width .1s linear; }
-.floaty { position: fixed; pointer-events: none; font-family: var(--f-mono); font-weight: 700; color: var(--accent); animation: floatup .8s ease-out forwards; z-index: 50; }
-@keyframes floatup { to { transform: translateY(-40px); opacity: 0; } }
-.banner { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 12px; font-size: 13px; border-bottom: 1px solid var(--line); }
-.banner.bad { background: var(--danger-soft); color: var(--danger); }
-.banner.good { background: var(--money-soft); color: var(--money); }
-.banner .txt { flex: 1; min-width: 0; }
-.banner .txt b { display: block; }
-.banner .bar { height: 3px; margin-top: 4px; }
-.banner.decide { background: var(--rep-soft); color: var(--fg); flex-direction: column; align-items: stretch; }
-.banner.decide b { color: var(--rep); }
-.banner .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.banner .opt { display: flex; flex-direction: column; gap: 3px; }
-.banner .opt .btn { justify-content: center; }
-.banner .opt small { font-size: 11.5px; color: var(--muted); text-align: center; }
-.bugs { position: absolute; inset: 0; pointer-events: none; }
-.bug { position: absolute; pointer-events: auto; font-size: 22px; line-height: 1; cursor: crosshair; animation: crawl 1.4s ease-in-out infinite alternate; filter: drop-shadow(0 1px 1px rgb(0 0 0 / .25)); }
-.bug.old { animation-duration: .35s; }
-@keyframes crawl { from { transform: translate(0, 0) rotate(-12deg); } to { transform: translate(14px, -6px) rotate(14deg); } }
-.goal { display: flex; align-items: baseline; gap: 8px; font-size: 12.5px; min-width: 0; }
-.goal .tag { font-family: var(--f-mono); font-size: 10.5px; font-weight: 700; color: var(--rep); background: var(--rep-soft); padding: 1px 6px; border-radius: 4px; flex: none; }
-.goal .gt { flex: 1; min-width: 0; font-weight: 600; }
-.goal .gr { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); white-space: nowrap; }
-.bar.thin { height: 4px; }
-.wfrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 14px; align-items: center; padding: 11px 12px; border-top: 1px solid var(--line); }
-.wfrow:first-child { border-top: 0; }
-.wfrow.off { background: var(--raise); color: var(--muted); }
-.wfrow h3 { margin: 0; font-family: var(--f-mono); font-size: 13px; font-weight: 700; }
-.wfrow .note { font-size: 12.5px; color: var(--muted); }
-.wfrow .full { grid-column: 1 / -1; }
-.wfrow input[type=range] { width: 100%; accent-color: var(--accent); }
-.switch { all: unset; cursor: pointer; font-family: var(--f-mono); font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--raise); color: var(--muted); }
-.switch[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
-.switch:focus-visible { outline: 2px solid var(--accent); }
-.card.talent.legendary { border-color: var(--money); box-shadow: 0 0 0 2px var(--money-soft); }
-.card.talent.rare { border-color: var(--rep); }
-.statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
-.statgrid .card { gap: 4px; }
-textarea.box { width: 100%; min-height: 70px; resize: vertical; font-family: var(--f-mono); font-size: 11.5px; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--code-bg); color: var(--fg); }
-.todo { display: flex; flex-direction: column; gap: 2px; font-family: var(--f-mono); font-size: 13px; }
-.todo div { display: flex; gap: 10px; padding: 5px 8px; border-radius: 6px; }
-.todo .done { color: var(--muted); text-decoration: line-through; }
-.todo .now { background: var(--rep-soft); color: var(--fg); font-weight: 700; }
-.todo .later { color: var(--faint); }
-.todo .rw { margin-left: auto; font-weight: 400; color: var(--muted); text-decoration: none; }
-.log .goal b { color: var(--rep); }
-.runbtn.shipped { animation: shipped .6s ease-out; }
-@keyframes shipped { 0% { box-shadow: 0 0 0 0 var(--accent); } 100% { box-shadow: 0 0 0 14px transparent; } }
-.floaty.money { color: var(--money); }
-
-/* ---------- open file view ---------- */
-.view { grid-area: view; }
-.vbody > * { flex-shrink: 0; }
-.vbody { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px 24px; display: flex; flex-direction: column; gap: 14px; }
-.vhead { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
-.vhead h2 { margin: 0; font-family: var(--f-display); font-weight: 800; font-size: 22px; letter-spacing: -.01em; text-wrap: balance; }
-.vhead p { margin: 2px 0 0; color: var(--muted); font-size: 13px; max-width: 60ch; }
-.cm-line { font-family: var(--f-mono); font-size: 12px; color: var(--code-cm); }
-.section-t { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; align-items: center; }
-.group { display: flex; gap: 4px; flex-wrap: wrap; }
-
-.pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: var(--raise); color: var(--muted); white-space: nowrap; font-family: var(--f-body); }
-.pill.good { background: var(--accent-soft); color: var(--accent); }
-.pill.money { background: var(--money-soft); color: var(--money); }
-.pill.rep { background: var(--rep-soft); color: var(--rep); }
-.pill.bad { background: var(--danger-soft); color: var(--danger); }
-.bar { height: 6px; border-radius: 6px; background: var(--raise); overflow: hidden; }
-.bar > div { height: 100%; width: 0; background: var(--accent); border-radius: 6px; transition: width .15s linear; }
-.bar.money > div { background: var(--money); } .bar.rep > div { background: var(--rep); } .bar.bad > div { background: var(--danger); }
-.kv { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--muted); }
-.kv b { color: var(--fg); font-weight: 600; font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
-
-.btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 11px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 13px; position: relative; overflow: hidden; user-select: none; white-space: nowrap; }
-.btn > span { position: relative; z-index: 1; }
-.btn .num { font-size: 12px; }
-.btn .fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--accent-soft); z-index: 0; }
-.btn:not(:disabled) .fill { display: none; }
-.btn.money { background: var(--money); } .btn.money .fill { background: var(--money-soft); }
-.btn.rep { background: var(--rep); color: #fff; } .btn.rep .fill { background: var(--rep-soft); }
-.btn.danger { background: var(--danger); color: #fff; }
-.btn.ghost { background: transparent; border: 1px solid var(--line); color: var(--fg); }
-.btn:disabled, .btn.money:disabled, .btn.rep:disabled, .btn.danger:disabled { background: var(--raise); color: var(--muted); cursor: not-allowed; }
-.btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
-.btn.block { width: 100%; }
-
-/* team table */
-.roles { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-.role { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 14px; align-items: center; padding: 10px 12px; border-top: 1px solid var(--line); }
-.role:first-child { border-top: 0; }
-.role.locked { background: var(--raise); color: var(--muted); }
-.role h3 { margin: 0; font-size: 14px; font-weight: 700; }
-.role .note { font-size: 12.5px; color: var(--muted); }
-.role .meta { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
-.role .acts { display: flex; flex-direction: column; gap: 4px; align-items: stretch; min-width: 200px; }
-.role .acts .sub { display: flex; gap: 4px; }
-.role .acts .sub .btn { flex: 1 1 auto; justify-content: center; padding: 3px 8px; font-size: 11.5px; font-weight: 600; }
-.role .count { font-family: var(--f-display); font-weight: 800; font-size: 22px; color: var(--muted); min-width: 2ch; text-align: right; }
-.office { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 12px; border-radius: 10px; background: var(--raise); }
-.office .bar { grid-column: 1 / -1; }
-
-/* cards (upgrades, perks, clients) */
-.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr)); gap: 10px; }
-.card { border: 1px solid var(--line); border-radius: 10px; padding: 11px; display: flex; flex-direction: column; gap: 6px; background: var(--pane); min-width: 0; }
-.card .t { font-weight: 700; font-size: 14px; }
-.card .d { color: var(--muted); font-size: 12.5px; flex: 1; }
-.card .top { display: flex; justify-content: space-between; gap: 6px; align-items: flex-start; }
-.card.done { background: var(--raise); }
-.chips { display: flex; gap: 4px; flex-wrap: wrap; }
-.chip { all: unset; cursor: pointer; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-.chip[aria-pressed="true"] { background: var(--fg); color: var(--pane); border-color: var(--fg); }
-.chip:focus-visible { outline: 2px solid var(--accent); }
-details.installed summary { cursor: pointer; font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
-details.installed ul { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--muted); columns: 2 220px; }
-
-/* feature tree */
-.tree { display: flex; flex-direction: column; gap: 10px; }
-.tier { display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 10px; align-items: start; }
-.tier .lbl { font-family: var(--f-mono); font-size: 11px; color: var(--faint); padding-top: 10px; }
-.nodes { display: flex; flex-wrap: wrap; gap: 8px; }
-.node { border: 1.5px solid var(--line); border-radius: 10px; padding: 9px 10px; display: flex; flex-direction: column; gap: 5px; width: 220px; max-width: 100%; background: var(--pane); }
-.node .t { font-weight: 700; font-size: 13.5px; display: flex; justify-content: space-between; gap: 6px; }
-.node .d { font-size: 12px; color: var(--muted); }
-.node.done { border-color: var(--accent); background: var(--accent-soft); }
-.node.locked { border-style: dashed; opacity: .6; }
-.node.blocked { opacity: .45; text-decoration: line-through; }
-.fork { display: flex; align-items: stretch; gap: 6px; padding: 6px; border: 1.5px dashed var(--rep); border-radius: 12px; flex-wrap: wrap; }
-.fork .or { align-self: center; font-family: var(--f-mono); font-size: 11px; color: var(--rep); font-weight: 700; }
-.fork-h { font-size: 11px; font-weight: 700; color: var(--rep); letter-spacing: .04em; text-transform: uppercase; width: 100%; padding-left: 4px; }
-
-/* welcome */
-.welcome { display: flex; flex-direction: column; gap: 12px; max-width: 520px; }
-.welcome h2 { font-family: var(--f-display); font-size: 30px; font-weight: 800; margin: 0; letter-spacing: -.02em; }
-.welcome h2 span { color: var(--accent); }
-.welcome ol { margin: 0; padding-left: 20px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
-
-/* ---------- bottom panel ---------- */
-.panel { grid-area: panel; border-top: 1px solid var(--line); }
-.ptabs { display: flex; gap: 2px; padding: 0 8px; height: 32px; align-items: stretch; background: var(--pane); border-bottom: 1px solid var(--line); flex: none; }
-.ptab { all: unset; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 0 10px; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.ptab[aria-selected="true"] { color: var(--fg); box-shadow: inset 0 -2px 0 var(--accent); }
-.ptab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.ptab .badge { font-size: 10px; padding: 1px 6px; border-radius: 9px; background: var(--raise); color: var(--muted); letter-spacing: 0; }
-.ptab .badge.warn { background: var(--money-soft); color: var(--money); }
-.ptab .badge.bad { background: var(--danger-soft); color: var(--danger); }
-.pbody { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 14px 12px; }
-.log { font-family: var(--f-mono); font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
-.log div { display: grid; grid-template-columns: 4.2em minmax(0, 1fr); gap: 8px; color: var(--muted); }
-.log div b { font-weight: 400; color: var(--fg); }
-.log .ship b { color: var(--accent); } .log .bad b { color: var(--danger); } .log .reveal b { color: var(--rep); } .log .good b { color: var(--fg); }
-.log .prompt { color: var(--accent); }
-.problems { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 28px; align-items: start; }
-.problems .col { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-.problems input[type=range] { width: 100%; accent-color: var(--accent); }
-.problems .ends { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--muted); }
-.problems .hint { font-size: 12.5px; color: var(--muted); margin: 0; }
-
-/* ---------- status bar ---------- */
-.status { grid-area: status; display: flex; align-items: center; gap: 2px; background: var(--status); color: var(--on-status); font-family: var(--f-mono); font-size: 12px; padding: 0 6px; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
-.status .it { display: flex; align-items: center; gap: 5px; padding: 0 8px; height: 100%; }
-.status .it .k { opacity: .75; }
-.status .sp { flex: 1; }
-.status button { all: unset; cursor: pointer; padding: 0 7px; height: 100%; display: flex; align-items: center; }
-.status button[aria-pressed="true"] { background: rgb(255 255 255 / .2); }
-.status button:hover { background: rgb(255 255 255 / .12); }
-.status button:focus-visible { outline: 2px solid var(--on-status); outline-offset: -2px; }
-.status .warn { background: rgb(0 0 0 / .18); }
-
-/* ---------- notifications ---------- */
-.toasts { position: fixed; right: 28px; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; align-items: flex-end; z-index: 40; max-width: min(380px, calc(100% - 32px)); pointer-events: none; }
-.toast { background: var(--pane); color: var(--fg); border: 1px solid var(--line); border-left: 3px solid var(--accent); padding: 9px 12px; border-radius: 8px; font-size: 13px; box-shadow: var(--shadow); animation: toastin .25s ease-out; }
-.toast.reveal { border-left-color: var(--rep); }
-.toast.bad { border-left-color: var(--danger); }
-@keyframes toastin { from { transform: translateY(8px); opacity: 0; } }
-
-/* ---------- small screens: stack, explorer becomes a tab strip ---------- */
-@media (max-width: 900px) {
-  .role { grid-template-columns: minmax(0, 1fr) auto; }
-  .role .acts { grid-column: 1 / -1; min-width: 0; }
-  html, body { height: auto; }
-  .ide { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto;
-    grid-template-areas: "title" "status" "write" "explorer" "view" "panel"; }
-  .write { border-right: 0; }
-  .editor { min-height: 300px; }
-  .explorer { display: flex; gap: 4px; overflow-x: auto; padding: 6px; border-right: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-  .ex-head, .folder { display: none; }
-  .file, .file.root { width: auto; padding: 6px 10px; border-radius: 7px; white-space: nowrap; flex: none; }
-  .vbody { max-height: none; }
-  .panel { min-height: 220px; }
-  .status { flex-wrap: wrap; white-space: normal; padding: 4px 6px; }
-  .status .it, .status button { height: 24px; }
-  .problems { grid-template-columns: minmax(0, 1fr); }
-  .runbtn .meta { display: none; }
-  .titlebar { height: auto; flex-wrap: wrap; padding: 8px 10px; row-gap: 8px; }
-  .titlebar .spacer { display: none; }
-  .runbtn { flex: 1 1 100%; justify-content: center; }
-  .dots { display: none; }
-  .wintitle span.path { display: none; }
-}
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
-</style>
-
-<div class="ide" id="ide">
-  <header class="titlebar">
-    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
-    <div class="wintitle"><b>git <span>rich</span></b><span class="path">~/startup</span></div>
-    <div class="spacer"></div>
-    <span id="auto-wrap"></span>
-    <button class="runbtn" id="ship-btn" data-act="ship" title="Ship your unshipped code"><span class="fill" id="ship-fill"></span><span id="ship-lbl">▶ Ship</span><span class="meta" id="ship-meta"></span></button>
-  </header>
-
-  <nav class="explorer" id="explorer" aria-label="Files"></nav>
-
-  <section class="pane write">
-    <div class="tabs"><div class="tab active"><span class="crumb">src /</span> app.ts</div></div>
-    <div id="banners"></div>
-    <button class="editor" id="editor" data-act="click" aria-label="Write code">
-      <div class="code" id="code"></div>
-      <div class="bugs" id="bugs"></div>
-    </button>
-    <div class="wfoot">
-      <div id="goal"></div>
-      <div class="row"><strong>Write code</strong><span class="val" id="click-val"></span></div>
-      <div class="flowbar"><div id="flow-bar"></div></div>
-      <div class="row"><span class="sub" id="flow-txt"></span><span class="sub" id="flow-hint"></span></div>
-    </div>
-  </section>
-
-  <section class="pane view">
-    <div class="tabs" id="view-tabs"></div>
-    <div class="vbody" id="view"></div>
-  </section>
-
-  <section class="pane panel">
-    <div class="ptabs" role="tablist" id="ptabs"></div>
-    <div class="pbody" id="pbody"></div>
-  </section>
-
-  <footer class="status" id="status"></footer>
-</div>
-<div class="toasts" id="toasts"></div>
-
-<script src="core.js"></script>
-<script>
-(() => {
-const G = window.GitRich;
-const $ = (s) => document.querySelector(s);
-let notation = 'short';
-const fmt = (n) => (notation === 'sci' && Math.abs(n) >= 1e6 ? n.toExponential(2).replace('e+', 'e') : G.fmt(n));
-const money = (n) => '$' + fmt(n);
-const pct = (x) => Math.round(x * 100) + '%';
-const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySelector<HTMLElement>(sel) as T;
+let notation: 'short' | 'sci' = 'short';
+const fmt = (n: number) => (notation === 'sci' && Math.abs(n) >= 1e6 ? n.toExponential(2).replace('e+', 'e') : G.fmt(n));
+const money = (n: number) => '$' + fmt(n);
+const pct = (x: number) => Math.round(x * 100) + '%';
+const ESC: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+const esc = (t: string) => String(t).replace(/[&<>"]/g, (c) => ESC[c]);
 const SAVE_KEY = 'gitrich-proto-v4';
 const UI_KEY = 'gitrich-ui-v3';
 
-let S = load();
-let UI = loadUI();
+let welcome = '';
+let S: GameState = load();
+let UI: UIState = loadUI();
 let speed = 1;
 notation = UI.notation || 'short';
 function applyTheme() {
@@ -380,37 +35,28 @@ function applyTheme() {
   else delete document.documentElement.dataset.theme;
 }
 applyTheme();
-const armed = { exit: 0, reset: 0, ch: 0, chId: null, ipo: 0 };
+const armed: { exit: number; reset: number; ch: number; chId: string | null; ipo: number } = { exit: 0, reset: 0, ch: 0, chId: null, ipo: 0 };
 let duckClicks = 0;
 
-function load() {
+function load(): GameState {
+  const data = readJSON(SAVE_KEY);
+  if (!data) return G.createState();
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return G.createState();
-    const data = JSON.parse(raw);
-    const s = Object.assign(G.createState({ perks: data.state.perks }), data.state);
-    // saves from before parallel goals only had a counter: mark that many goals as done
-    if (!data.state.goalsDone) for (let i = 0; i < (s.goal || 0); i++) s.goalsDone[i] = true;
-    s.events = [];
-    s.rev++;
-    const capH = s.perks.night ? 8 : 2;
-    const away = Math.min(capH * 3600, Math.max(0, (Date.now() - data.savedAt) / 1000));
-    if (away > 30) {
-      const m0 = s.money;
-      for (let i = 0; i < away; i++) G.tick(s, 1, () => 0.999, { offline: true });
-      s.viral = null; s.events = [];
-      window.__welcome = `While you were away (${Math.round(away / 60)} min) your team kept working: +${money(s.money - m0)}.`;
-    }
+    const s = G.fromSave(data);
+    const earned = G.catchUp(s, (Date.now() - (data as G.SaveFile).savedAt) / 1000);
+    if (earned > 0 && Date.now() - (data as G.SaveFile).savedAt > 30000) welcome = `While you were away your team kept working: +${money(earned)}.`;
     return s;
-  } catch (_) { return G.createState(); }
+  } catch {
+    return G.createState();
+  }
 }
 function save() {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify({ savedAt: Date.now(), state: Object.assign({}, S, { events: [] }) })); } catch (_) {}
-  try { localStorage.setItem(UI_KEY, JSON.stringify(UI)); } catch (_) {}
+  writeJSON(SAVE_KEY, G.toSave(S, Date.now()));
+  writeJSON(UI_KEY, UI);
 }
-function loadUI() {
-  const d = { file: null, opened: {}, ptab: 'terminal', buyAmt: 1, upCat: 'all' };
-  try { return Object.assign(d, JSON.parse(localStorage.getItem(UI_KEY) || '{}')); } catch (_) { return d; }
+function loadUI(): UIState {
+  const d: UIState = { file: null, opened: {}, ptab: 'terminal', buyAmt: 1, upCat: 'all' };
+  return Object.assign(d, readJSON(UI_KEY) || {});
 }
 
 /* ---------- app.ts ---------- */
@@ -437,7 +83,7 @@ const SNIPPETS = [
   '<span class="kw">if</span> (!flags.<span class="fn">enabled</span>(<span class="st">"dark-mode"</span>)) <span class="kw">return</span>;',
 ];
 let lineNo = 1, snip = 0;
-const lines = [];
+const lines: string[] = [];
 function pushLine() {
   lines.push(`<span class="ln">${lineNo++}</span>${SNIPPETS[snip++ % SNIPPETS.length]}`);
   if (lines.length > 14) lines.shift();
@@ -446,13 +92,13 @@ function pushLine() {
 pushLine();
 
 /* ---------- notifications ---------- */
-function toast(text, kind) {
+function toast(text: string, kind?: LogKind | '') {
   const t = document.createElement('div');
   t.className = 'toast ' + (kind || '');
   t.textContent = text;
   $('#toasts').appendChild(t);
   setTimeout(() => t.remove(), kind === 'reveal' ? 5000 : 3200);
-  while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
+  while ($('#toasts').children.length > 4) $('#toasts').firstElementChild?.remove();
 }
 
 /* ---------- files ---------- */
@@ -473,7 +119,8 @@ const FILES = [
   { id: 'stats', folder: '', name: 'stats.md', ico: 'MD', md: true, show: () => S.revealed.stats, badge: () => null },
   { id: 'settings', folder: '', name: 'settings.json', ico: '{}', md: true, show: () => true, badge: () => null },
 ];
-const BOTS = [
+type BotKey = 'autoShip' | 'autoDeliver' | 'autoRefactor' | 'autoUpgrade' | 'autoBug' | 'autoHire';
+const BOTS: { id: BotKey; name: string; title: string; note: string; has: () => boolean; from: string }[] = [
   { id: 'autoShip', name: 'ci-cd', title: 'CI/CD Pipeline', note: 'Ships releases on its own while debt is under the limit.', has: () => G.mods(S).autoShip, from: 'the CI/CD Pipeline upgrade' },
   { id: 'autoDeliver', name: 'zapier', title: 'Zapier Flows', note: 'Delivers client work as soon as you have the code.', has: () => G.mods(S).autoDeliver, from: 'the Zapier Flows upgrade' },
   { id: 'autoRefactor', name: 'refactor-bot', title: 'Refactor Bot', note: 'Moves the refactoring slider to hold debt near the target.', has: () => G.mods(S).autoRefactor, from: 'the Refactor Bot upgrade' },
@@ -485,14 +132,14 @@ const activeBots = () => BOTS.filter((b) => b.has() && S[b.id]);
 const visibleFiles = () => FILES.filter((f) => f.show());
 
 /* ---------- actions ---------- */
-function floaty(text, x, y, cls) {
+function floaty(text: string, x: number, y: number, cls?: string) {
   const f = document.createElement('div');
   f.className = 'floaty ' + (cls || ''); f.textContent = text;
   f.style.left = x + 'px'; f.style.top = y + 'px';
   document.body.appendChild(f); setTimeout(() => f.remove(), 800);
 }
-function act(el, e) {
-  const a = el.dataset.act, arg = el.dataset.arg;
+function act(el: HTMLElement, e: PointerEvent | null) {
+  const a = el.dataset.act, arg = el.dataset.arg ?? '';
   switch (a) {
     case 'click': {
       const v = G.click(S);
@@ -519,7 +166,7 @@ function act(el, e) {
       if (pay) floaty('+' + money(pay), (e && e.clientX) || 0, ((e && e.clientY) || 0) - 10, 'money');
       break;
     }
-    case 'decide': G.decide(S, arg); break;
+    case 'decide': G.decide(S, arg === 'b' ? 'b' : 'a'); break;
     case 'talent': G.hireTalent(S, Number(arg)); break;
     case 'untalent': G.releaseTalent(S, Number(arg)); break;
     case 'board': G.buyBoard(S, arg); break;
@@ -527,28 +174,25 @@ function act(el, e) {
       if (Date.now() - armed.ipo < 4000) { const n = G.ipo(S); if (n) { S = n; armed.ipo = 0; UI.file = 'ipo'; save(); } }
       else armed.ipo = Date.now();
       break;
-    case 'toggle': S[arg] = !S[arg]; break;
+    case 'toggle': S[arg as BotKey] = !S[arg as BotKey]; break;
     case 'challenge':
       if (armed.chId === arg && Date.now() - armed.ch < 4000) { const n = G.startChallenge(S, arg); if (n) { S = n; armed.chId = null; save(); } }
       else { armed.chId = arg; armed.ch = Date.now(); }
       break;
-    case 'notation': UI.notation = notation = arg; break;
+    case 'notation': UI.notation = notation = arg === 'sci' ? 'sci' : 'short'; break;
     case 'theme': UI.theme = arg; applyTheme(); break;
     case 'export': {
-      const box = $('#export-box');
-      box.value = btoa(unescape(encodeURIComponent(JSON.stringify({ savedAt: Date.now(), state: Object.assign({}, S, { events: [] }) }))));
+      const box = $<HTMLTextAreaElement>('#export-box');
+      box.value = G.encodeSave(G.toSave(S, Date.now()));
       box.select();
       try { navigator.clipboard.writeText(box.value).then(() => toast('Save copied to the clipboard.'), () => toast('Save text is selected. Copy it with Ctrl+C.')); } catch (_) { toast('Save text is selected. Copy it with Ctrl+C.'); }
       break;
     }
     case 'import': {
       try {
-        const data = JSON.parse(decodeURIComponent(escape(atob($('#import-box').value.trim()))));
-        if (!data.state || typeof data.state.loc !== 'number') throw new Error('bad');
-        S = Object.assign(G.createState({ perks: data.state.perks }), data.state);
-        S.events = []; S.rev++;
+        S = G.fromSave(G.decodeSave($<HTMLTextAreaElement>('#import-box').value));
         toast('Save loaded.', 'reveal');
-      } catch (_) { toast('That does not look like a Git Rich save. Paste the full text from Export.', 'bad'); }
+      } catch { toast('That does not look like a Git Rich save. Paste the full text from Export.', 'bad'); }
       break;
     }
     case 'hotfix': G.hotfix(S); break;
@@ -575,7 +219,7 @@ function act(el, e) {
       break;
     case 'reset':
       if (Date.now() - armed.reset < 4000) {
-        try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(UI_KEY); } catch (_) {}
+        remove(SAVE_KEY, UI_KEY);
         S = G.createState(); UI = loadUI(); UI.file = null; UI.opened = {}; armed.reset = 0; lines.length = 0; lineNo = 1; pushLine();
       } else armed.reset = Date.now();
       break;
@@ -586,37 +230,38 @@ function act(el, e) {
 // pointerdown so rapid clicks never get lost when a panel re-renders; click (detail 0) for keyboard
 document.addEventListener('pointerdown', (e) => {
   if (e.button !== 0) return;
-  const el = e.target.closest('[data-act]');
-  if (!el || el.disabled) return;
+  const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
+  if (!el || (el as HTMLButtonElement).disabled) return;
   if (el.dataset.act === 'click' || el.dataset.act === 'squash') e.preventDefault();
   act(el, e);
 });
 document.addEventListener('click', (e) => {
   if (e.detail !== 0) return;
-  const el = e.target.closest('[data-act]');
-  if (el && !el.disabled) act(el, null);
+  const el = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
+  if (el && !(el as HTMLButtonElement).disabled) act(el, null);
 });
 document.addEventListener('input', (e) => {
-  if (e.target.id === 'refactor') G.setRefactor(S, Number(e.target.value) / 100);
-  if (e.target.id === 'autodebt') S.autoShipDebt = Number(e.target.value) / 100;
-  if (e.target.id === 'reftarget') S.refactorTarget = Number(e.target.value) / 100;
+  const t = e.target as HTMLInputElement;
+  if (t.id === 'refactor') G.setRefactor(S, Number(t.value) / 100);
+  if (t.id === 'autodebt') S.autoShipDebt = Number(t.value) / 100;
+  if (t.id === 'reftarget') S.refactorTarget = Number(t.value) / 100;
 });
 
 /* ---------- keyed rendering ---------- */
-const keys = {};
-function region(id, key, html) {
+const keys: Record<string, string> = {};
+function region(id: string, key: string, html: () => string) {
   if (keys[id] === key) return false;
   keys[id] = key;
-  document.getElementById(id).innerHTML = html();
+  document.getElementById(id)!.innerHTML = html();
   return true;
 }
-const sev = (d) => (d < 0.1 ? 'good' : d < 0.25 ? 'warn' : 'bad');
-const fillPct = (have, need) => Math.min(100, (have / need) * 100) + '%';
-const costLabel = (c) => (c.money ? money(c.money) : fmt(c.loc) + ' LoC');
-const costHave = (c) => (c.money ? S.money / c.money : S.loc / c.loc);
+const sev = (d: number) => (d < 0.1 ? 'good' : d < 0.25 ? 'warn' : 'bad');
+const fillPct = (have: number, need: number) => Math.min(100, (have / need) * 100) + '%';
+const costLabel = (c: Cost) => (c.money ? money(c.money) : fmt(c.loc ?? 0) + ' LoC');
+const costHave = (c: Cost) => (c.money ? S.money / c.money : S.loc / (c.loc ?? 1));
 
 function renderTitle() {
-  const b = $('#ship-btn');
+  const b = $<HTMLButtonElement>('#ship-btn');
   b.hidden = !S.revealed.ship;
   if (!S.revealed.ship) return;
   b.disabled = !G.canShip(S);
@@ -662,7 +307,7 @@ function renderWrite() {
   if (g) { const [c, t] = g.prog(S); $('#goal-bar').style.width = fillPct(c, t); $('#goal-rw').textContent = G.goalReward(S, g); }
   region('bugs', 'b' + S.bugs.map((b) => b.id + (S.t - b.born > 10 ? 'o' : '')).join(','), () => S.bugs.map((b) =>
     `<span class="bug ${S.t - b.born > 10 ? 'old' : ''}" data-act="squash" data-arg="${b.id}" style="left:${6 + b.x * 80}%;top:${8 + b.y * 70}%" title="Squash this bug before it escapes">🐛</span>`).join(''));
-  const inc = S.incident, vir = S.viral, dec = S.decision && G.DECISIONS.find((x) => x.id === S.decision.id);
+  const inc = S.incident, vir = S.viral, dec = S.decision && G.DECISIONS.find((x) => x.id === S.decision!.id);
   region('banners', `${!!inc}|${!!vir}|${dec ? dec.id : ''}`, () => `
     ${dec ? `<div class="banner decide"><div class="txt"><b>${dec.title}</b> ${dec.text}<div class="bar rep"><div id="dec-bar"></div></div></div>
       <div class="opts"><div class="opt"><button class="btn rep" data-act="decide" data-arg="a"><span>${dec.a[0]}</span></button><small>${dec.a[1]}</small></div>
@@ -670,12 +315,17 @@ function renderWrite() {
     ${inc ? `<div class="banner bad"><div class="txt"><b>Incident in production: income ×0.5</b><span id="inc-why"></span><div class="bar bad"><div id="inc-bar"></div></div></div><button class="btn danger" data-act="hotfix"><span>Hotfix</span><span class="num" id="inc-left"></span></button></div>` : ''}
     ${vir ? `<div class="banner good"><div class="txt"><b>Your app is trending!</b>Income ×${G.mods(S).viralBoost} for 30 s and a Reputation boost.<div class="bar money"><div id="vir-bar"></div></div></div><button class="btn money" data-act="viral"><span>Ride the wave</span><span class="num" id="vir-left"></span></button></div>` : ''}`);
   if (inc) { $('#inc-why').textContent = inc.why; $('#inc-left').textContent = inc.left + '×'; $('#inc-bar').style.width = (100 - inc.t / G.mods(S).incDur * 100) + '%'; }
-  if (dec) $('#dec-bar').style.width = Math.max(0, (S.decision.until - S.t) / 30 * 100) + '%';
+  if (dec) $('#dec-bar').style.width = Math.max(0, (S.decision!.until - S.t) / 30 * 100) + '%';
   if (vir) { const l = Math.max(0, vir.until - S.t); $('#vir-left').textContent = Math.ceil(l) + 's'; $('#vir-bar').style.width = l / 12 * 100 + '%'; }
 }
 
 /* ---------- file views ---------- */
-const VIEWS = {
+interface View {
+  key: () => string;
+  html: () => string;
+  live?: () => void;
+}
+const VIEWS: Record<string, View> = {
   welcome: {
     key: () => 'w',
     html: () => `<div class="welcome"><div class="cm-line">// README.md</div><h2>git <span>rich</span></h2>
@@ -684,16 +334,16 @@ const VIEWS = {
       <li>The <b>▶ Ship</b> button at the top turns code into income. Watch <b>Problems</b> below for tech debt.</li></ol></div>`,
   },
   team: {
-    key: () => ['t', S.talents.map((t) => t.id).join('.'), S.talentPool.map((c) => c.id + (S.money >= G.talentCost(S, c))).join('.'), S.office, G.headcount(S), UI.buyAmt, S.autoHire, G.ROLES.map((d) => d.id + S.staff[d.id] + G.roleUnlocked(S, d) + (S.money >= G.promoteCost(S, d.id)) + (G.bulk(S, d.id, UI.buyAmt).n > 0 && G.bulk(S, d.id, UI.buyAmt).total <= S.money)).join(''), S.money >= G.officeCost(S) && S.rep >= (G.OFFICES[S.office + 1] || { rep: 0 }).rep].join('|'),
+    key: () => ['t', S.talents.map((t) => t.id).join('.'), S.talentPool.map((c) => `${c.id}${S.money >= G.talentCost(S, c)}`).join('.'), S.office, G.headcount(S), UI.buyAmt, S.autoHire, G.ROLES.map((d) => d.id + S.staff[d.id] + G.roleUnlocked(S, d) + (S.money >= G.promoteCost(S, d.id)) + (G.bulk(S, d.id, UI.buyAmt).n > 0 && G.bulk(S, d.id, UI.buyAmt).total <= S.money)).join(''), S.money >= G.officeCost(S) && S.rep >= (G.OFFICES[S.office + 1] || { rep: 0 }).rep].join('|'),
     html: () => {
       const nx = G.OFFICES[S.office + 1];
       const full = G.headcount(S) >= G.seats(S);
-      const row = (d) => {
+      const row = (d: RoleDef) => {
         if (!G.roleUnlocked(S, d)) return `<div class="role locked"><div><h3>${d.name}</h3><div class="note">${d.needs ? 'Needs the Machine Learning upgrade' : `Unlocks at ${fmt(d.rep)} Reputation`}</div></div><span></span><span class="pill rep">${d.needs ? 'locked' : fmt(S.rep) + ' / ' + fmt(d.rep)}</span></div>`;
         const b = G.bulk(S, d.id, UI.buyAmt);
         const n = b.n || 1, total = b.n ? b.total : G.staffCost(S, d.id);
         const ok = b.n > 0 && b.total <= S.money;
-        const meta = G.isSupport(d) ? '' : `<div class="meta"><span class="pill good">${fmt(d.out * G.mods(S).out[d.id])} LoC/s</span><span class="pill ${G.staffBug(S, d) >= 0.3 ? 'bad' : G.staffBug(S, d) >= 0.1 ? 'money' : 'good'}">${pct(G.staffBug(S, d))} bugs</span></div>`;
+        const meta = G.isSupport(d) ? '' : `<div class="meta"><span class="pill good">${fmt((d.out ?? 0) * G.mods(S).out[d.id])} LoC/s</span><span class="pill ${G.staffBug(S, d) >= 0.3 ? 'bad' : G.staffBug(S, d) >= 0.1 ? 'money' : 'good'}">${pct(G.staffBug(S, d))} bugs</span></div>`;
         const nx = G.nextLevel(S, d.id);
         const sub = S.staff[d.id] ? `<div class="sub">${nx ? `<button class="btn ghost" data-act="promote" data-arg="${d.id}" ${S.money >= G.promoteCost(S, d.id) ? '' : 'disabled'} title="Turn one ${d.name} into a ${nx.name} (same price as hiring one)">Promote ${money(G.promoteCost(S, d.id))}</button>` : ''}<button class="btn ghost" data-act="letgo" data-arg="${d.id}" title="Let one ${d.name} go to free a seat">Let go</button></div>` : '';
         return `<div class="role"><div><h3>${d.name}</h3><div class="note">${d.note}</div>${meta}</div><span class="count num">${S.staff[d.id]}</span>
@@ -716,8 +366,8 @@ const VIEWS = {
         ${S.rep >= 20 || G.SUPPORT.some((d) => S.staff[d.id]) ? `<div class="section-t"><span>Support</span><span class="num">${G.SUPPORT.reduce((a, d) => a + S.staff[d.id], 0)} people</span></div><div class="roles">${shownSup.map(row).join('')}</div>` : ''}`;
     },
     live: () => {
-      for (const d of G.ROLES) { const f = document.querySelector(`[data-fill="hire:${d.id}"]`); if (f) f.style.width = fillPct(S.money, G.staffCost(S, d.id)); }
-      const f = document.querySelector('[data-fill="office"]'); if (f) f.style.width = fillPct(S.money, G.officeCost(S));
+      for (const d of G.ROLES) { const f = document.querySelector<HTMLElement>(`[data-fill="hire:${d.id}"]`); if (f) f.style.width = fillPct(S.money, G.staffCost(S, d.id)); }
+      const f = document.querySelector<HTMLElement>('[data-fill="office"]'); if (f) f.style.width = fillPct(S.money, G.officeCost(S));
       const tn = $('#talent-next'); if (tn) tn.textContent = 'new candidates in ' + Math.max(0, Math.ceil((S.nextTalents - S.t) / 60)) + ' min';
     },
   },
@@ -727,7 +377,7 @@ const VIEWS = {
       const cats = [['all', 'All'], ['roles', 'Roles'], ['tools', 'Tools'], ['process', 'Process'], ['people', 'People'], ['growth', 'Growth'], ['clients', 'Clients'], ['automation', 'Automation']];
       const vis = G.UPGRADES.filter((u) => G.upgradeVisible(S, u) && (UI.upCat === 'all' || u.cat === UI.upCat)).sort((a, b) => costHave(b.cost) - costHave(a.cost));
       const owned = G.UPGRADES.filter((u) => S.done[u.id]);
-      const count = (c) => G.UPGRADES.filter((u) => G.upgradeVisible(S, u) && (c === 'all' || u.cat === c)).length;
+      const count = (c: string) => G.UPGRADES.filter((u) => G.upgradeVisible(S, u) && (c === 'all' || u.cat === c)).length;
       return `<div class="vhead"><div><div class="cm-line">// company/upgrades.ts</div><h2>Upgrades</h2><p>One-time purchases that change a rule. New ones appear as you hit milestones. Process upgrades are paid in code.</p></div>
         <span class="pill good">${owned.length} / ${G.UPGRADES.length} installed</span></div>
         <div class="chips">${cats.filter(([c]) => c === 'all' || count(c)).map(([c, l]) => `<button class="chip" data-act="upcat" data-arg="${c}" aria-pressed="${UI.upCat === c}">${l} ${count(c) ? `<span class="num">${count(c)}</span>` : ''}</button>`).join('')}</div>
@@ -736,18 +386,18 @@ const VIEWS = {
           : '<p class="cm-line">// nothing new here yet. Keep growing.</p>'}
         ${owned.length ? `<details class="installed"><summary>Installed (${owned.length})</summary><ul>${owned.map((u) => `<li><b>${u.name}</b>: ${u.desc}</li>`).join('')}</ul></details>` : ''}`;
     },
-    live: () => { for (const u of G.UPGRADES) { const f = document.querySelector(`[data-fill="up:${u.id}"]`); if (f) f.style.width = Math.min(100, costHave(u.cost) * 100) + '%'; } },
+    live: () => { for (const u of G.UPGRADES) { const f = document.querySelector<HTMLElement>(`[data-fill="up:${u.id}"]`); if (f) f.style.width = Math.min(100, costHave(u.cost) * 100) + '%'; } },
   },
   features: {
     key: () => ['f', G.FEATURES.map((f) => f.id + G.featureState(S, f) + (S.loc >= G.featureCost(S, f))).join(',')].join('|'),
     html: () => {
       const tiers = [...new Set(G.FEATURES.map((f) => f.tier))];
-      const node = (f) => {
+      const node = (f: Feature) => {
         const st = G.featureState(S, f);
         const c = G.featureCost(S, f);
         return `<div class="node ${st}"><span class="t">${f.name}${st === 'done' ? '<span class="pill good">built</span>' : ''}</span><span class="d">${f.desc}</span>
           ${st === 'open' ? `<button class="btn" data-act="feature" data-arg="${f.id}" ${S.loc >= c ? '' : 'disabled'}><span class="fill" data-fill="feat:${f.id}"></span><span>Build</span><span class="num">${fmt(c)} LoC</span></button>`
-          : st === 'locked' ? `<span class="cm-line">needs ${f.req.map((r) => G.FEATURES.find((x) => x.id === r).name).join(' + ')}</span>` : st === 'blocked' ? '<span class="cm-line">not chosen this company</span>' : ''}</div>`;
+          : st === 'locked' ? `<span class="cm-line">needs ${(f.req ?? []).map((r) => G.FEATURES.find((x) => x.id === r)!.name).join(' + ')}</span>` : st === 'blocked' ? '<span class="cm-line">not chosen this company</span>' : ''}</div>`;
       };
       return `<div class="vhead"><div><div class="cm-line">// product/features.ts</div><h2>Product features</h2><p>Spend unshipped code to grow your product. Dashed purple boxes are strategy choices: pick one per company.</p></div>
         <span class="pill good">${Object.keys(S.features).length} / ${G.FEATURES.length} built</span></div>
@@ -758,7 +408,7 @@ const VIEWS = {
             ${forks.map((k) => { const pair = fs.filter((f) => f.fork === k); return `<div class="fork"><span class="fork-h">Choose your ${k}</span>${node(pair[0])}<span class="or">or</span>${node(pair[1])}</div>`; }).join('')}</div></div>`;
         }).join('')}</div>`;
     },
-    live: () => { for (const f of G.FEATURES) { const el = document.querySelector(`[data-fill="feat:${f.id}"]`); if (el) el.style.width = fillPct(S.loc, G.featureCost(S, f)); } },
+    live: () => { for (const f of G.FEATURES) { const el = document.querySelector<HTMLElement>(`[data-fill="feat:${f.id}"]`); if (el) el.style.width = fillPct(S.loc, G.featureCost(S, f)); } },
   },
   market: {
     key: () => { const k = G.MARKETS[S.market + 1]; return ['m', S.market, G.marketFull(S), k && S.money >= G.marketCost(S) && S.rep >= k.rep].join('|'); },
@@ -776,7 +426,7 @@ const VIEWS = {
     live: () => {
       $('#mk-sat').textContent = pct(G.saturation(S)); $('#mk-bar').style.width = G.saturation(S) * 100 + '%';
       $('#mk-cap').textContent = money(G.cap(S)) + '/s'; $('#mk-mrr').textContent = money(G.mrr(S)) + '/s';
-      const f = document.querySelector('[data-fill="mk"]'); if (f) f.style.width = fillPct(S.money, G.marketCost(S));
+      const f = document.querySelector<HTMLElement>('[data-fill="mk"]'); if (f) f.style.width = fillPct(S.money, G.marketCost(S));
     },
   },
   clients: {
@@ -788,7 +438,7 @@ const VIEWS = {
         <div class="bar"><div data-exp="${c.id}"></div></div>
         <button class="btn money" data-act="deliver" data-arg="${c.id}" ${G.contractOk(S, c) ? '' : 'disabled'}><span class="fill" data-fill="c:${c.id}"></span><span>Deliver</span><span class="num">${G.contractOk(S, c) ? '+' + money(c.pay) : c.maxDebt != null && G.debtPct(S) > c.maxDebt ? 'too much debt' : 'need ' + fmt(c.size) + ' LoC'}</span></button></div>`).join('')}</div>`
         : '<p class="cm-line">// no offers right now. New clients call every ~20 s.</p>'}`,
-    live: () => { for (const c of S.contracts) { const e = document.querySelector(`[data-exp="${c.id}"]`); if (e) e.style.width = Math.max(0, (c.expires - S.t) / c.life * 100) + '%'; const f = document.querySelector(`[data-fill="c:${c.id}"]`); if (f) f.style.width = fillPct(S.loc, c.size); } },
+    live: () => { for (const c of S.contracts) { const e = document.querySelector<HTMLElement>(`[data-exp="${c.id}"]`); if (e) e.style.width = Math.max(0, (c.expires - S.t) / c.life * 100) + '%'; const f = document.querySelector<HTMLElement>(`[data-fill="c:${c.id}"]`); if (f) f.style.width = fillPct(S.loc, c.size); } },
   },
   exit: {
     key: () => `x|${G.valuation(S) >= G.exitNeed(S)}|${Date.now() - armed.exit < 4000}`,
@@ -856,13 +506,13 @@ const VIEWS = {
           <span class="d"><b>Rule:</b> ${c.rule}<br><b>Goal:</b> ${money(c.goal)} valuation<br><b>Reward:</b> ${c.reward}</span>
           ${active ? `<div class="bar money"><div data-ch="${c.id}"></div></div>` : done ? '' : `<button class="btn ${isArmed ? 'danger' : 'rep'}" data-act="challenge" data-arg="${c.id}" ${S.challenge ? 'disabled' : ''}><span>${isArmed ? 'Click again to start' : 'Start challenge'}</span></button>`}</div>`;
       }).join('')}</div>`,
-    live: () => { if (S.challenge) { const c = G.CHALLENGES.find((x) => x.id === S.challenge); const el = document.querySelector(`[data-ch="${c.id}"]`); if (el) el.style.width = fillPct(G.valuation(S), c.goal); } },
+    live: () => { if (S.challenge) { const c = G.challengeDef(S.challenge); const el = document.querySelector<HTMLElement>(`[data-ch="${c.id}"]`); if (el) el.style.width = fillPct(G.valuation(S), c.goal); } },
   },
   stats: {
     key: () => 'st|' + Math.floor(S.t / 2),
     html: () => {
       const R = G.rates(S), m = G.mods(S);
-      const kv = (k, v) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
+      const kv = (k: string, v: string | number) => `<div class="kv"><span>${k}</span><b>${v}</b></div>`;
       const roles = G.ENGINEERS.filter((d) => R.byRole[d.id]).map((d) => kv(d.name, fmt(R.byRole[d.id]) + ' LoC/s (' + pct(R.byRole[d.id] / Math.max(1, R.team)) + ')')).join('') || kv('No engineers yet', '—');
       return `<div class="vhead"><div><div class="cm-line"># stats.md</div><h2>Statistics</h2><p>Where your code and money come from.</p></div></div>
       <div class="statgrid">
@@ -915,14 +565,14 @@ function renderPanel() {
         ${G.mods(S).autoShip ? `<label for="autodebt" class="kv"><span>Auto-ship only under</span><b id="ad-lbl"></b></label><input type="range" id="autodebt" min="5" max="40" step="1" value="${Math.round(S.autoShipDebt * 100)}">` : ''}</div></div>`);
     const R = G.rates(S);
     $('#debt-bar').style.width = Math.min(100, d * 200) + '%';
-    $('#debt-bar').parentElement.className = 'bar ' + (sev(d) === 'bad' ? 'bad' : sev(d) === 'warn' ? 'money' : '');
+    $('#debt-bar').parentElement!.className = 'bar ' + (sev(d) === 'bad' ? 'bad' : sev(d) === 'warn' ? 'money' : '');
     $('#debt-pct').textContent = pct(d);
     $('#debt-q').textContent = '×' + G.quality(S).toFixed(2);
     $('#ref-lbl').textContent = pct(S.refactor);
     const net = R.bug - R.refactor;
     $('#debt-rate').textContent = (net >= 0 ? '+' : '') + fmt(net) + '/s';
     $('#debt-team').textContent = '×' + G.teamBug(S).toFixed(2);
-    const sl = $('#refactor'); if (document.activeElement !== sl) sl.value = Math.round(S.refactor * 100);
+    const sl = $<HTMLInputElement>('#refactor'); if (document.activeElement !== sl) sl.value = String(Math.round(S.refactor * 100));
     if ($('#ad-lbl')) $('#ad-lbl').textContent = pct(S.autoShipDebt);
   } else {
     const top = S.feed[0];
@@ -945,7 +595,7 @@ function renderStatus() {
   if (S.revealed.debt) items.push(`<span class="it ${sev(d) !== 'good' ? 'warn' : ''}" id="st-debt-wrap" data-act="ptab" data-arg="problems" style="cursor:pointer" title="Open Problems"><span class="k">⚠ debt</span><span id="st-debt"></span></span>`);
   if (S.fp || S.exits) items.push(`<span class="it"><span class="k">FP</span>${S.fp}</span>`);
   if (S.shares || S.ipos) items.push(`<span class="it"><span class="k">Shares</span>${S.shares}</span>`);
-  if (S.challenge) items.push(`<span class="it warn" data-act="open" data-arg="challenges" style="cursor:pointer">⚑ ${G.CHALLENGES.find((c) => c.id === S.challenge).name}</span>`);
+  if (S.challenge) items.push(`<span class="it warn" data-act="open" data-arg="challenges" style="cursor:pointer">⚑ ${G.challengeDef(S.challenge).name}</span>`);
   items.push('<span class="sp"></span>');
   items.push(`<span class="it"><span class="k">company #${S.exits + 1} · ${Math.floor(S.t / 60)} min</span></span>`);
   items.push(`<span class="it"><span class="k">speed</span></span>${[1, 5, 20].map((x) => `<button data-act="speed" data-arg="${x}" aria-pressed="${speed === x}">×${x}</button>`).join('')}`);
@@ -963,7 +613,7 @@ function render() {
 
 /* ---------- loop ---------- */
 let last = performance.now(), saveAt = 0;
-function frame(now) {
+function frame(now: number) {
   let dt = Math.min(1, (now - last) / 1000) * speed;
   last = now;
   while (dt > 0) { const step = Math.min(0.1, dt); G.tick(S, step, Math.random); dt -= step; }
@@ -981,13 +631,11 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) save(
 // Type to code: any letter, number or space key writes code (held keys do not repeat).
 document.addEventListener('keydown', (e) => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-  if (e.target.closest && e.target.closest('input, textarea, select')) return;
+  if ((e.target as HTMLElement).closest?.('input, textarea, select')) return;
   if (e.key.length !== 1) return;
   if (e.key === ' ') e.preventDefault();
   if (S.incident) G.hotfix(S); else { G.click(S); pushLine(); }
 });
-if (window.__welcome) setTimeout(() => toast(window.__welcome, 'reveal'), 300);
+if (welcome) setTimeout(() => toast(welcome, 'reveal'), 300);
 render();
 requestAnimationFrame(frame);
-})();
-</script>

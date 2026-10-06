@@ -7,8 +7,9 @@ the one every developer knows: **ship fast, or keep the code clean?**
   core, so the game can later move to desktop, mobile or a terminal UI.
 - **Language:** English only. **Look:** the whole game is an IDE window, light and dark theme.
 - **Playable demo:** https://claude.ai/artifact/DTgxc51UKKGSnmM1pwu5TS
-  (source: `prototype/`; all numbers live in `prototype/core.js`).
-- **Status:** Draft v0.7. v0.7 is a self-playtest pass: market size became a real ceiling
+  (source: `src/`; all numbers live in `src/core/content.ts` and `src/core/engine.ts`).
+- **Status:** Draft v0.8. v0.8 ports the prototype to Vite + TypeScript with tests and a CI balance
+  check, and adds talents. Earlier: v0.7. v0.7 is a self-playtest pass: market size became a real ceiling
   (it was being bypassed, so growth exploded after the first sale target), parallel goals,
   safe offline progress, rule tests, and the second prestige layer (IPO + Board Room).
   History: [Playtest 01](playtest-01.md).
@@ -232,7 +233,7 @@ Up to 5 at once. 15 talents, for example: *Patient Mentor* (Interns and Juniors 
 *Systems Architect* (Brooks's law −40%), *Product Visionary* (releases earn 40% more),
 *Backend Wizard* (Seniors and Leads ×3), *Zen Code Monk* (all bugs −40%).
 
-## 6. Measured pacing (`prototype/sim.js`, scripted player)
+## 6. Measured pacing (`npm run sim`, scripted player)
 
 | Company | Sold at (active) | Result |
 |---|---|---|
@@ -246,37 +247,47 @@ Up to 5 at once. 15 talents, for example: *Patient Mentor* (Interns and Juniors 
 - Active = 5 clicks/s, squashes bugs, answers decisions, saves up when a market is full, sells on
   a plateau. Casual = clicks for 10 minutes, then idles: first sale at ~40 min.
 - Gap between purchases (p90) stays under 25 s for 30 minutes; the longest wait is about 1 min.
-- `prototype/test.js` checks the rules (37 checks: offline catch-up, challenges, perks, IPO, talents,
-  save round trip, long-run stability).
+- `npm test` checks the rules (25 Vitest tests: offline catch-up, challenges, perks, IPO, talents,
+  save round trip, long-run stability). `npm run balance` fails CI if pacing leaves the target ranges
+  (first sale 20–50 min, first IPO in 1.5–4 h, no 2-minute purchase gap early, casual sale 25–60 min).
 
-## 7. Later (not in the demo)
+## 7. Ideas for later
 
+- Seasonal events and limited-time challenges.
+- A third prestige layer above IPO (acquiring other companies).
+- Cloud save and a public leaderboard of fastest sales.
 
-## 8. Technical plan
+## 8. Technical design
 
-`prototype/core.js` holds all rules with no DOM, timers or `Math.random`. Upgrades,
-features, perks and support roles all write into one modifier object (`mods`), so new
-content is data, not new code paths. The browser UI and the pacing simulation both run it.
-The production version ports this to TypeScript:
+The game is Vite + TypeScript (strict). `src/core/` holds all rules with no DOM, timers or
+`Math.random`: time and RNG are passed in. Upgrades, features, perks, talents, Board Room seats,
+challenges and support roles all write into one modifier object (`Mods`), so new content is data,
+not new code paths. The browser UI, the Vitest tests and the scripted player all run the same core.
 
 ```
-src/core/      rules, content data, modifiers, save/migrations  (pure, Vitest)
-src/platform/  storage, clock, RNG adapters per platform
-src/ui/web/    IDE-style DOM rendering
-tools/sim.ts   pacing simulation, run in CI to catch balance regressions
-tools/test.ts  rule checks (today: prototype/test.js)
+src/core/types.ts     GameState, Mods and content types
+src/core/content.ts   every role, upgrade, feature, perk, goal, decision, challenge, talent
+src/core/engine.ts    modifiers, derived values, actions, tick
+src/core/save.ts      save format, migrations, offline catch-up, export/import text
+src/platform/         browser storage adapter
+src/ui/               IDE-style DOM rendering
+tests/                rule tests (Vitest)
+tools/bot.ts          scripted player; sim.ts (report), balance.ts (CI pacing check)
 ```
+
+CI (`.github/workflows/ci.yml`) runs typecheck, tests, the balance check and the build on every
+push. `pages.yml` deploys `main` to GitHub Pages.
 
 ## 9. Roadmap
 
-| Milestone | Content |
-|---|---|
-| **M0** | Vite + TS + Vitest setup; port `core.js` to typed modules with tests |
-| **M1** | Port the IDE UI; save/load with versioned migrations |
-| **M2** | Balance pass with real playtesters; sim in CI |
-| **M3** | Talents (done in the prototype; port with M1) |
-| **M4** | IPO + Board Room (done in the prototype; port with M1) |
-| **M5** | Polish, mobile pass, GitHub Pages deploy → v1.0 |
+| Milestone | Content | Status |
+|---|---|---|
+| **M0** | Vite + TS + Vitest setup; typed core with tests | done |
+| **M1** | IDE UI in TypeScript; save/load with migrations | done |
+| **M2** | Balance pass with real playtesters; sim in CI | sim in CI done; playtests open |
+| **M3** | Talents | done |
+| **M4** | IPO + Board Room | done |
+| **M5** | Polish, mobile pass, GitHub Pages deploy → v1.0 | deploy workflow ready |
 
 ## 10. Open questions
 

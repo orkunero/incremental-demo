@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Git Rich</title>
+  <meta name="description" content="An incremental game about growing a software company, played inside an IDE.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%23117a58%22/%3E%3Ctext x=%2216%22 y=%2222%22 font-size=%2218%22 font-family=%22monospace%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22white%22%3Eg%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/src/ui/styles.css">
+</head>
+<body>
+<div class="ide" id="ide">
+  <header class="titlebar">
+    <div class="dots" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="wintitle"><b>git <span>rich</span></b><span class="path">~/startup</span></div>
+    <div class="spacer"></div>
+    <span id="auto-wrap"></span>
+    <button class="runbtn" id="ship-btn" data-act="ship" title="Ship your unshipped code"><span class="fill" id="ship-fill"></span><span id="ship-lbl">▶ Ship</span><span class="meta" id="ship-meta"></span></button>
+  </header>
+
+  <nav class="explorer" id="explorer" aria-label="Files"></nav>
+
+  <section class="pane write">
+    <div class="tabs"><div class="tab active"><span class="crumb">src /</span> app.ts</div></div>
+    <div id="banners"></div>
+    <button class="editor" id="editor" data-act="click" aria-label="Write code">
+      <div class="code" id="code"></div>
+      <div class="bugs" id="bugs"></div>
+    </button>
+    <div class="wfoot">
+      <div id="goal"></div>
+      <div class="row"><strong>Write code</strong><span class="val" id="click-val"></span></div>
+      <div class="flowbar"><div id="flow-bar"></div></div>
+      <div class="row"><span class="sub" id="flow-txt"></span><span class="sub" id="flow-hint"></span></div>
+    </div>
+  </section>
+
+  <section class="pane view">
+    <div class="tabs" id="view-tabs"></div>
+    <div class="vbody" id="view"></div>
+  </section>
+
+  <section class="pane panel">
+    <div class="ptabs" role="tablist" id="ptabs"></div>
+    <div class="pbody" id="pbody"></div>
+  </section>
+
+  <footer class="status" id="status"></footer>
+</div>
+<div class="toasts" id="toasts"></div>
+<script type="module" src="/src/ui/main.ts"></script>
+</body>
+</html>
