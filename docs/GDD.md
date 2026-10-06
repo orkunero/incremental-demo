@@ -224,6 +224,14 @@ starting team, starting Reputation and market, $1M head start, keep cheap perks 
 all bots from the start, double seats, double market size, cheaper features, and Dual-class
 Shares (+50% per unspent Share).
 
+### 5.18 Talents (talent market in `team.ts`)
+Opens once you have 10 people. Every 4 minutes three named candidates appear (Common 70%,
+Rare 25%, Legendary 5%), never one you already have. Each has one unique effect, takes a seat,
+costs 1 / 3 / 10 minutes of income by rarity, and **stays through a sale** (an IPO lets them go).
+Up to 5 at once. 15 talents, for example: *Patient Mentor* (Interns and Juniors +30%),
+*Systems Architect* (Brooks's law −40%), *Product Visionary* (releases earn 40% more),
+*Backend Wizard* (Seniors and Leads ×3), *Zen Code Monk* (all bugs −40%).
+
 ## 6. Measured pacing (`prototype/sim.js`, scripted player)
 
 | Company | Sold at (active) | Result |
@@ -238,12 +246,11 @@ Shares (+50% per unspent Share).
 - Active = 5 clicks/s, squashes bugs, answers decisions, saves up when a market is full, sells on
   a plateau. Casual = clicks for 10 minutes, then idles: first sale at ~40 min.
 - Gap between purchases (p90) stays under 25 s for 30 minutes; the longest wait is about 1 min.
-- `prototype/test.js` checks the rules (31 checks: offline catch-up, challenges, perks, IPO, save
-  round trip, long-run stability).
+- `prototype/test.js` checks the rules (37 checks: offline catch-up, challenges, perks, IPO, talents,
+  save round trip, long-run stability).
 
 ## 7. Later (not in the demo)
 
-- **Talents:** rare named hires with unique effects that survive an Exit.
 
 ## 8. Technical plan
 
@@ -267,7 +274,7 @@ tools/test.ts  rule checks (today: prototype/test.js)
 | **M0** | Vite + TS + Vitest setup; port `core.js` to typed modules with tests |
 | **M1** | Port the IDE UI; save/load with versioned migrations |
 | **M2** | Balance pass with real playtesters; sim in CI |
-| **M3** | Talents |
+| **M3** | Talents (done in the prototype; port with M1) |
 | **M4** | IPO + Board Room (done in the prototype; port with M1) |
 | **M5** | Polish, mobile pass, GitHub Pages deploy → v1.0 |
 

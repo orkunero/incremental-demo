@@ -249,7 +249,9 @@
     ['challenger', 'Challenger', 'Complete a challenge.', (s) => Object.keys(s.chDone).length >= 1],
     ['allchallenges', 'Hard Mode', 'Complete every challenge.', (s) => CHALLENGES.every((c) => s.chDone[c.id])],
     ['ipo', 'Ring the Bell', 'Take a company public.', (s) => s.ipos >= 1],
-    ['chairman', 'Chairman of the Board', 'Own 5 Board Room seats.', (s) => Object.keys(s.board).length >= 5]
+    ['chairman', 'Chairman of the Board', 'Own 5 Board Room seats.', (s) => Object.keys(s.board).length >= 5],
+    ['legend', 'Living Legend', 'Hire a legendary talent.', (s) => s.talents.some((t) => talentDef(t.kind).rarity === 'legendary')],
+    ['dreamteam', 'Dream Team', 'Have 5 talents at once.', (s) => s.talents.length >= MAX_TALENTS]
   ].map(([id, name, desc, check]) => ({ id, name, desc, check }));
 
   // ---------- automation (workflows.yml) ----------
@@ -348,6 +350,29 @@
     { id: 'dualclass', cost: 8, name: 'Dual-class Shares', desc: 'Each unspent Share gives +50% code and income instead of +25%.' },
   ];
 
+  // ---------- talents: rare, named hires with one unique effect each ----------
+  // They take a seat, stay through a sale, and leave at an IPO.
+  const MAX_TALENTS = 5;
+  const RARITY = { common: { weight: 70, pay: 60, min: 400 }, rare: { weight: 25, pay: 180, min: 4000 }, legendary: { weight: 5, pay: 600, min: 40000 } };
+  const TALENTS = [
+    { id: 'refactorer', rarity: 'common', title: 'Refactoring Fanatic', desc: 'Refactoring is 30% more effective.', fx: (m) => { m.refactor *= 1.3; } },
+    { id: 'pixel', rarity: 'common', title: 'Pixel Perfectionist', desc: 'Every market is 10% bigger.', fx: (m) => { m.cap *= 1.1; } },
+    { id: 'whisperer', rarity: 'common', title: 'Bug Whisperer', desc: 'Squashing bugs pays ×2.', fx: (m) => { m.bugReward *= 2; } },
+    { id: 'closer', rarity: 'common', title: 'Sales Closer', desc: 'Client work pays 30% more.', fx: (m) => { m.pay *= 1.3; } },
+    { id: 'oncall', rarity: 'common', title: 'On-call Hero', desc: 'Incidents are 30% less likely.', fx: (m) => { m.incident *= 0.7; } },
+    { id: 'mentor', rarity: 'common', title: 'Patient Mentor', desc: 'Interns and Juniors write 30% more code.', fx: (m) => { m.out.intern *= 1.3; m.out.junior *= 1.3; } },
+    { id: 'typist', rarity: 'common', title: '200 WPM Typist', desc: 'Your clicks write 50% more code.', fx: (m) => { m.click *= 1.5; } },
+    { id: 'tenx', rarity: 'rare', title: '10x Engineer', desc: 'All engineers write 25% more code.', fx: (m) => { m.allOut *= 1.25; } },
+    { id: 'growth', rarity: 'rare', title: 'Growth Hacker', desc: 'Reputation gains +40%.', fx: (m) => { m.rep *= 1.4; } },
+    { id: 'architect', rarity: 'rare', title: 'Systems Architect', desc: 'Big-team bugs (Brooks\'s law) −40%.', fx: (m) => { m.brooks *= 0.6; } },
+    { id: 'visionary', rarity: 'rare', title: 'Product Visionary', desc: 'Releases earn 40% more.', fx: (m) => { m.mrr *= 1.4; } },
+    { id: 'speaker', rarity: 'rare', title: 'Conference Darling', desc: 'Trending events come 40% sooner and boost income 50% more.', fx: (m) => { m.viralEvery *= 0.6; m.viralBoost *= 1.5; } },
+    { id: 'wizard', rarity: 'legendary', title: 'Backend Wizard', desc: 'Senior Devs and Tech Leads write ×3 code.', fx: (m) => { m.out.senior *= 3; m.out.lead *= 3; } },
+    { id: 'unicorn', rarity: 'legendary', title: 'Serial Unicorn Founder', desc: 'Selling a company gives 50% more Founder Points.', fx: (m) => { m.fpGain *= 1.5; } },
+    { id: 'zen', rarity: 'legendary', title: 'Zen Code Monk', desc: 'All code has 40% fewer bugs.', fx: (m) => { m.allBug *= 0.6; } },
+  ];
+  const TALENT_NAMES = ['Ada', 'Bora', 'Cem', 'Deniz', 'Elif', 'Femi', 'Grace', 'Hana', 'Ines', 'Jun', 'Kai', 'Lena', 'Mira', 'Noor', 'Omar', 'Priya', 'Quinn', 'Rosa', 'Sven', 'Tariq', 'Uma', 'Vik', 'Wen', 'Yara', 'Zeki'];
+
   const CLIENTS = [
     'Crumb & Co. bakery', 'Dr. Ayla\'s dental clinic', 'Kadıköy Bikes', 'Moss Yoga Studio', 'Harbor Logistics',
     'Pine Street Library', 'Velvet Records', 'Northbank Credit Union', 'City Parking Office', 'Lumen Solar',
@@ -384,6 +409,7 @@
     for (const d of SUPPORT) if (s.staff[d.id]) d.fx(m, s.staff[d.id]);
     for (const c of CHALLENGES) if (s.chDone[c.id]) c.win(m);
     for (const b of BOARD) if (s.board[b.id] && b.fx) b.fx(m);
+    for (const t of s.talents) TALENTS.find((x) => x.id === t.kind).fx(m);
     if (s.challenge) CHALLENGES.find((c) => c.id === s.challenge).fx(m);
     if (s.perks.autohire) m.autoHire = true;
     const ach = Object.keys(s.ach).length;
@@ -395,7 +421,7 @@
   const touch = (s) => { s.rev++; };
 
   // ---------- derived values ----------
-  const headcount = (s) => ROLES.reduce((a, d) => a + s.staff[d.id], 0);
+  const headcount = (s) => ROLES.reduce((a, d) => a + s.staff[d.id], 0) + s.talents.length;
   const seats = (s) => Math.floor(OFFICES[s.office].seats * mods(s).seats);
   const role = (id) => ROLES.find((d) => d.id === id);
   const isSupport = (d) => !d.out;
@@ -508,6 +534,7 @@
       goal: 0, goalsDone: {}, bugs: [], bugSeq: 0, nextBug: 0, decision: null, nextDecision: 0, temp: [], dilution: 1,
       autoDeliver: true, autoRefactor: true, refactorTarget: 0.1, autoUpgrade: true, autoBug: true,
       challenge: meta.challenge || null, chDone: Object.assign({}, meta.chDone),
+      talents: (meta.talents || []).slice(), talentPool: [], nextTalents: 0, talentSeq: meta.talentSeq || 0,
       shares: meta.shares || 0, sharesTotal: meta.sharesTotal || 0, ipos: meta.ipos || 0, ipoTotal: meta.ipoTotal || 0, board: Object.assign({}, meta.board),
       events: [], // transient: UI reads and clears
     };
@@ -731,6 +758,40 @@
     return true;
   }
 
+  // Talents
+  const talentDef = (kind) => TALENTS.find((x) => x.id === kind);
+  const talentCost = (s, c) => { const r = RARITY[talentDef(c.kind).rarity]; return Math.max(r.min, mrr(s) * r.pay); };
+  function rollTalents(s, rng) {
+    s.talentPool = [];
+    for (let i = 0; i < 3; i++) {
+      let roll = rng() * 100, rarity = 'common';
+      for (const k of ['legendary', 'rare', 'common']) { if (roll < RARITY[k].weight) { rarity = k; break; } roll -= RARITY[k].weight; }
+      const pool = TALENTS.filter((t) => t.rarity === rarity && !s.talents.some((h) => h.kind === t.id) && !s.talentPool.some((p) => p.kind === t.id));
+      if (!pool.length) continue;
+      const kind = pool[Math.floor(rng() * pool.length)].id;
+      s.talentSeq++;
+      s.talentPool.push({ id: s.talentSeq, kind, name: `${TALENT_NAMES[Math.floor(rng() * TALENT_NAMES.length)]} ${String.fromCharCode(65 + Math.floor(rng() * 26))}.` });
+    }
+  }
+  function hireTalent(s, id) {
+    const c = s.talentPool.find((x) => x.id === id);
+    if (!c || s.talents.length >= MAX_TALENTS || headcount(s) >= seats(s) || s.challenge === 'solo') return false;
+    const cost = talentCost(s, c);
+    if (s.money < cost) return false;
+    s.money -= cost;
+    s.talents.push(c);
+    s.talentPool = s.talentPool.filter((x) => x.id !== id);
+    touch(s);
+    log(s, `Hired ${c.name}, ${talentDef(c.kind).title}.`, 'reveal');
+    return true;
+  }
+  function releaseTalent(s, id) {
+    const before = s.talents.length;
+    s.talents = s.talents.filter((t) => t.id !== id);
+    if (s.talents.length !== before) touch(s);
+    return s.talents.length !== before;
+  }
+
   function squash(s, id) {
     const i = s.bugs.findIndex((b) => b.id === id);
     if (i < 0) return 0;
@@ -811,7 +872,7 @@
   // Everything that survives a reset. Each reset overrides only what it changes.
   function carry(s, over) {
     return Object.assign({
-      fp: s.fp, fpTotal: s.fpTotal, exits: s.exits, soldTotal: s.soldTotal, perks: s.perks,
+      fp: s.fp, fpTotal: s.fpTotal, exits: s.exits, soldTotal: s.soldTotal, perks: s.perks, talents: s.talents, talentSeq: s.talentSeq,
       ach: s.ach, life: s.life, flags: s.flags, revealed: s.revealed, feed: s.feed, chDone: s.chDone,
       shares: s.shares, sharesTotal: s.sharesTotal, ipos: s.ipos, ipoTotal: s.ipoTotal, board: s.board,
     }, over);
@@ -827,7 +888,7 @@
     const keepPerks = {};
     if (s.board.memory) for (const p of PERKS) if (s.perks[p.id] && p.cost <= 2) keepPerks[p.id] = true;
     const n = createState(carry(s, {
-      fp: 0, fpTotal: 0, exits: 0, soldTotal: 0, perks: keepPerks,
+      fp: 0, fpTotal: 0, exits: 0, soldTotal: 0, perks: keepPerks, talents: [],
       shares: s.shares + gain, sharesTotal: s.sharesTotal + gain, ipos: s.ipos + 1, ipoTotal: s.ipoTotal + valuation(s),
     }));
     log(n, `IPO! Your company went public at $${fmt(valuation(s))}. +${gain} Shares.`, 'reveal');
@@ -993,6 +1054,11 @@
     if (UPGRADES.some((u) => u.cat === 'automation' && s.done[u.id]) || m.autoShip || m.autoHire) reveal(s, 'workflows', 'Automation is online. Open .github/workflows.yml.');
     if (s.t >= 300) reveal(s, 'stats', null);
     if (s.exits >= 3) reveal(s, 'ipo', 'Bankers are calling: an IPO is possible. Open ipo.ts.');
+    if (!away && (headcount(s) >= 10 || s.talents.length) && s.t >= s.nextTalents) {
+      if (!s.revealed.talents) reveal(s, 'talents', 'A recruiter sent you rare candidates. See the talent market in team.ts.');
+      rollTalents(s, rng);
+      s.nextTalents = s.t + 240;
+    }
     for (const u of UPGRADES) upgradeVisible(s, u);
     achTimer += dt;
     if (achTimer >= 1) { achTimer = 0; checkAchievements(s); }
@@ -1023,7 +1089,7 @@
     ENGINEERS, SUPPORT, ROLES, OFFICES, MARKETS, UPGRADES, FEATURES, PERKS, ACHIEVEMENTS, GOALS, DECISIONS, CHALLENGES, BOARD, MIN_SHIP, EXIT_VALUATION, IPO_VALUATION,
     createState, tick, click, ship, canShip, hotfix, claimViral, hire, bulk, promote, promoteCost, nextLevel, letGo, moveOffice, buyMarket,
     upgradeVisible, canAfford, buyUpgrade, featureState, featureCost, buyFeature, buyPerk,
-    deliver, contractOk, setRefactor, exit, checkAchievements, bestEngineer, touch, squash, decide, startChallenge, ipo, canIpo, sharesGain, buyBoard, goalReward, openGoals, tempMult,
+    deliver, contractOk, setRefactor, exit, checkAchievements, bestEngineer, touch, squash, decide, startChallenge, ipo, TALENTS, MAX_TALENTS, talentDef, talentCost, hireTalent, releaseTalent, canIpo, sharesGain, buyBoard, goalReward, openGoals, tempMult,
     mods, rates, mrr, baseMrr, saturation, shipGain, shipRep, launchPay, debtPct, quality, clickValue, flowMult, seats, headcount,
     exitNeed, staffCost, roleUnlocked, staffBug, teamBug, valuation, fpGain, incidentChance, versionStr, cap, deployTime,
     officeCost, marketCost, marketFull, isSupport, fmt,

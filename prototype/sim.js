@@ -56,6 +56,7 @@ function bot(s, active, decide, m, run) {
     while (G.roleUnlocked(s, d) && s.staff[d.id] < want[d.id] && G.staffCost(s, d.id) < s.money * 0.5 && G.hire(s, d.id, 1)) buy('staff:' + d.id);
   }
   if (G.headcount(s) >= G.seats(s)) for (const d of G.ENGINEERS) while (s.staff[d.id] > 0 && G.nextLevel(s, d.id) && G.promoteCost(s, d.id) < s.money * 0.3 && G.promote(s, d.id)) buy('promote');
+  for (const c of [...s.talentPool]) if (G.talentCost(s, c) < s.money * 0.3) G.hireTalent(s, c.id) && buy('talent');
   for (;;) {
     const b = G.bestEngineer(s);
     if (!b || !G.hire(s, b.id, 1)) break;

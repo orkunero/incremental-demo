@@ -104,6 +104,18 @@ if (pub) {
 }
 check('no IPO during a challenge', (() => { const c = G.createState({ exits: 3, challenge: 'solo' }); c.revealed.ship = true; c.market = 4; c.mrrRaw = 1e12; return !G.canIpo(c); })());
 
+// 13. talents: market appears, hiring takes a seat, they survive a sale and leave at an IPO
+s = grow(G.createState(), 900);
+check('talent market opens with a team', s.revealed.talents && s.talentPool.length > 0, `pool ${s.talentPool.length}`);
+s.money = 1e9; const cand = s.talentPool[0]; const hc = G.headcount(s);
+if (G.headcount(s) >= G.seats(s)) G.letGo(s, 'intern');
+check('hire a talent', G.hireTalent(s, cand.id) && s.talents.length === 1);
+check('talent uses a seat', G.headcount(s) >= hc);
+s.mrrRaw = 1e9; s.market = 3; s.revealed.ship = true;
+const sold = G.exit(s); check('talents stay after a sale', !!sold && sold.talents.length === 1);
+check('never offers a talent you already have', (() => { const t = G.createState({ talents: [{ id: 1, kind: 'tenx', name: 'X' }] }); for (let i = 0; i < 200; i++) { t.nextTalents = 0; G.tick(t, 0.1, rng); if (t.talentPool.some((c) => c.kind === 'tenx')) return false; } return true; })());
+check('release a talent', G.releaseTalent(s, cand.id) && s.talents.length === 0);
+
 console.log(out.join('\n'));
 const failed = out.filter((l) => l.startsWith('FAIL')).length;
 console.log(`\n${out.length - failed} passed, ${failed} failed`);

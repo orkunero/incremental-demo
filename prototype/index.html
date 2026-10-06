@@ -151,6 +151,8 @@ button { font: inherit; color: inherit; }
 .switch { all: unset; cursor: pointer; font-family: var(--f-mono); font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--raise); color: var(--muted); }
 .switch[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .switch:focus-visible { outline: 2px solid var(--accent); }
+.card.talent.legendary { border-color: var(--money); box-shadow: 0 0 0 2px var(--money-soft); }
+.card.talent.rare { border-color: var(--rep); }
 .statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px; }
 .statgrid .card { gap: 4px; }
 textarea.box { width: 100%; min-height: 70px; resize: vertical; font-family: var(--f-mono); font-size: 11.5px; padding: 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--code-bg); color: var(--fg); }
@@ -518,6 +520,8 @@ function act(el, e) {
       break;
     }
     case 'decide': G.decide(S, arg); break;
+    case 'talent': G.hireTalent(S, Number(arg)); break;
+    case 'untalent': G.releaseTalent(S, Number(arg)); break;
     case 'board': G.buyBoard(S, arg); break;
     case 'ipo':
       if (Date.now() - armed.ipo < 4000) { const n = G.ipo(S); if (n) { S = n; armed.ipo = 0; UI.file = 'ipo'; save(); } }
@@ -680,7 +684,7 @@ const VIEWS = {
       <li>The <b>▶ Ship</b> button at the top turns code into income. Watch <b>Problems</b> below for tech debt.</li></ol></div>`,
   },
   team: {
-    key: () => ['t', S.office, G.headcount(S), UI.buyAmt, S.autoHire, G.ROLES.map((d) => d.id + S.staff[d.id] + G.roleUnlocked(S, d) + (S.money >= G.promoteCost(S, d.id)) + (G.bulk(S, d.id, UI.buyAmt).n > 0 && G.bulk(S, d.id, UI.buyAmt).total <= S.money)).join(''), S.money >= G.officeCost(S) && S.rep >= (G.OFFICES[S.office + 1] || { rep: 0 }).rep].join('|'),
+    key: () => ['t', S.talents.map((t) => t.id).join('.'), S.talentPool.map((c) => c.id + (S.money >= G.talentCost(S, c))).join('.'), S.office, G.headcount(S), UI.buyAmt, S.autoHire, G.ROLES.map((d) => d.id + S.staff[d.id] + G.roleUnlocked(S, d) + (S.money >= G.promoteCost(S, d.id)) + (G.bulk(S, d.id, UI.buyAmt).n > 0 && G.bulk(S, d.id, UI.buyAmt).total <= S.money)).join(''), S.money >= G.officeCost(S) && S.rep >= (G.OFFICES[S.office + 1] || { rep: 0 }).rep].join('|'),
     html: () => {
       const nx = G.OFFICES[S.office + 1];
       const full = G.headcount(S) >= G.seats(S);
@@ -703,6 +707,10 @@ const VIEWS = {
         <div class="office"><div><b>${G.OFFICES[S.office].name}</b> <span class="num" style="color:var(--muted)">${G.headcount(S)} / ${G.seats(S)} seats</span></div>
           ${nx ? `<button class="btn ${full ? 'money' : 'ghost'}" data-act="office" ${S.money >= G.officeCost(S) && S.rep >= nx.rep ? '' : 'disabled'}><span class="fill" data-fill="office"></span><span>Move to ${nx.name} · ${Math.floor(nx.seats * G.mods(S).seats)} seats</span><span class="num">${S.rep < nx.rep ? 'needs ' + fmt(nx.rep) + ' Rep' : money(G.officeCost(S))}</span></button>` : '<span class="pill good">Biggest office</span>'}
           <div class="bar ${full ? 'money' : ''}"><div style="width:${G.headcount(S) / G.seats(S) * 100}%"></div></div></div>
+        ${S.revealed.talents ? `<div class="section-t"><span>Talents</span><span class="num">${S.talents.length} / ${G.MAX_TALENTS} · they stay when you sell</span></div>
+          ${S.talents.length ? `<div class="cards">${S.talents.map((t) => { const d = G.talentDef(t.kind); return `<div class="card talent ${d.rarity}"><div class="top"><span class="t">${esc(t.name)}</span><span class="pill ${d.rarity === 'legendary' ? 'money' : d.rarity === 'rare' ? 'rep' : ''}">${d.rarity}</span></div><span class="d"><b>${d.title}.</b> ${d.desc}</span><button class="btn ghost" data-act="untalent" data-arg="${t.id}"><span>Let go</span></button></div>`; }).join('')}</div>` : ''}
+          <div class="section-t"><span>Talent market</span><span class="num" id="talent-next"></span></div>
+          ${S.talentPool.length ? `<div class="cards">${S.talentPool.map((c) => { const d = G.talentDef(c.kind), cost = G.talentCost(S, c), ok = S.money >= cost && S.talents.length < G.MAX_TALENTS && !full; return `<div class="card talent ${d.rarity}"><div class="top"><span class="t">${esc(c.name)}</span><span class="pill ${d.rarity === 'legendary' ? 'money' : d.rarity === 'rare' ? 'rep' : ''}">${d.rarity}</span></div><span class="d"><b>${d.title}.</b> ${d.desc}</span><button class="btn ${d.rarity === 'legendary' ? 'money' : 'rep'}" data-act="talent" data-arg="${c.id}" ${ok ? '' : 'disabled'}><span>Hire</span><span class="num">${S.talents.length >= G.MAX_TALENTS ? 'team full' : full ? 'no seats' : money(cost)}</span></button></div>`; }).join('')}</div>` : '<p class="cm-line">// no candidates right now</p>'}` : ''}
         <div class="section-t"><span>Engineering</span><span class="num">${G.ENGINEERS.reduce((a, d) => a + S.staff[d.id], 0)} people</span></div>
         <div class="roles">${shownEng.map(row).join('')}</div>
         ${S.rep >= 20 || G.SUPPORT.some((d) => S.staff[d.id]) ? `<div class="section-t"><span>Support</span><span class="num">${G.SUPPORT.reduce((a, d) => a + S.staff[d.id], 0)} people</span></div><div class="roles">${shownSup.map(row).join('')}</div>` : ''}`;
@@ -710,6 +718,7 @@ const VIEWS = {
     live: () => {
       for (const d of G.ROLES) { const f = document.querySelector(`[data-fill="hire:${d.id}"]`); if (f) f.style.width = fillPct(S.money, G.staffCost(S, d.id)); }
       const f = document.querySelector('[data-fill="office"]'); if (f) f.style.width = fillPct(S.money, G.officeCost(S));
+      const tn = $('#talent-next'); if (tn) tn.textContent = 'new candidates in ' + Math.max(0, Math.ceil((S.nextTalents - S.t) / 60)) + ' min';
     },
   },
   upgrades: {
