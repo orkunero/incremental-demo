@@ -198,6 +198,14 @@ function act(el: HTMLElement, e: PointerEvent | null) {
     case 'hotfix': G.hotfix(S); break;
     case 'viral': G.claimViral(S); break;
     case 'open': UI.file = arg; UI.opened[arg] = true; break;
+    case 'goto-app': {
+      // app.ts is always open; on narrow screens it can be scrolled out of view, so bring it back
+      const ed = $('#editor');
+      ed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      ed.focus({ preventScroll: true });
+      ed.classList.remove('flash'); void ed.offsetWidth; ed.classList.add('flash');
+      break;
+    }
     case 'ptab': UI.ptab = arg; break;
     case 'deliver': G.deliver(S, Number(arg)); break;
     case 'hire': G.hire(S, arg, UI.buyAmt); break;
@@ -279,7 +287,7 @@ function renderExplorer() {
   const files = visibleFiles();
   const key = files.map((f) => { const b = f.badge(); return f.id + (UI.file === f.id ? '*' : '') + (UI.opened[f.id] ? '' : 'U') + (b ? b.join('') : ''); }).join(',');
   region('explorer', key, () => {
-    let html = '<div class="ex-head">Explorer</div><div class="folder">▾ startup</div><button class="file" style="padding-left:28px" tabindex="-1" aria-hidden="true"><span class="ico">TS</span><span class="name">app.ts</span></button>';
+    let html = '<div class="ex-head">Explorer</div><div class="folder">▾ startup</div><button class="file" style="padding-left:28px" data-act="goto-app" title="Go to the code editor"><span class="ico">TS</span><span class="name">app.ts</span></button>';
     let folder = null;
     for (const f of files) {
       if (f.folder !== folder) { folder = f.folder; if (folder) html += `<div class="folder" style="padding-left:28px">▾ ${folder}</div>`; }

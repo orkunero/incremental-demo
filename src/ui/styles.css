@@ -100,6 +100,8 @@ button { font: inherit; color: inherit; }
 .write { grid-area: write; border-right: 1px solid var(--line); }
 .editor { all: unset; box-sizing: border-box; flex: 1; min-height: 0; display: flex; flex-direction: column; cursor: pointer; user-select: none; background: var(--code-bg); touch-action: manipulation; position: relative; }
 .editor:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.editor.flash { animation: flash 0.9s ease-out; }
+@keyframes flash { 0% { box-shadow: inset 0 0 0 3px var(--accent); } 100% { box-shadow: inset 0 0 0 3px transparent; } }
 .code { flex: 1; min-height: 120px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 10px 0; font-family: var(--f-mono); font-size: 12.5px; line-height: 1.65; color: var(--code-fg); }
 .code .line { white-space: pre; overflow: hidden; text-overflow: ellipsis; padding-right: 12px; }
 .code .line.new { animation: typein .18s ease-out; background: var(--hover); }
