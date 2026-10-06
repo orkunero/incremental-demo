@@ -26,7 +26,8 @@ npm run check      # all of the above plus the build
 ```
 
 CI runs `typecheck`, `test`, `balance` and `build` on every push.
-Pushes to `main` deploy to GitHub Pages (enable it once under Settings → Pages → Source: GitHub Actions).
+Pushes to the default branch deploy to GitHub Pages (enable it once under Settings → Pages → Source: GitHub Actions;
+on GitHub's free plan Pages needs a public repository).
 
 ## Layout
 
