@@ -387,6 +387,8 @@ function load() {
     if (!raw) return G.createState();
     const data = JSON.parse(raw);
     const s = Object.assign(G.createState({ perks: data.state.perks }), data.state);
+    // saves from before parallel goals only had a counter: mark that many goals as done
+    if (!data.state.goalsDone) for (let i = 0; i < (s.goal || 0); i++) s.goalsDone[i] = true;
     s.events = [];
     s.rev++;
     const capH = s.perks.night ? 8 : 2;
