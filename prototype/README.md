@@ -11,3 +11,8 @@ node prototype/sim.js 5      # active player, 5 clicks/s
 node prototype/sim.js 5 10   # clicks for 10 minutes, then idles
 node prototype/sim.js 5 - 2  # active player, only 2 companies
 ```
+- `test.js` — rule checks for `core.js` (offline catch-up, challenges, perks, IPO, saves).
+
+```
+node prototype/test.js       # exits with 1 if a check fails
+```

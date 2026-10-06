@@ -378,7 +378,7 @@ function applyTheme() {
   else delete document.documentElement.dataset.theme;
 }
 applyTheme();
-const armed = { exit: 0, reset: 0, ch: 0, chId: null };
+const armed = { exit: 0, reset: 0, ch: 0, chId: null, ipo: 0 };
 let duckClicks = 0;
 
 function load() {
@@ -393,7 +393,7 @@ function load() {
     const away = Math.min(capH * 3600, Math.max(0, (Date.now() - data.savedAt) / 1000));
     if (away > 30) {
       const m0 = s.money;
-      for (let i = 0; i < away; i++) G.tick(s, 1, () => 0.999);
+      for (let i = 0; i < away; i++) G.tick(s, 1, () => 0.999, { offline: true });
       s.viral = null; s.events = [];
       window.__welcome = `While you were away (${Math.round(away / 60)} min) your team kept working: +${money(s.money - m0)}.`;
     }
@@ -457,10 +457,11 @@ const FILES = [
   { id: 'team', folder: 'company', name: 'team.ts', show: () => S.revealed.team, badge: () => (canHireAny() ? ['•', ''] : null) },
   { id: 'upgrades', folder: 'company', name: 'upgrades.ts', show: () => S.revealed.upgrades, badge: () => { const n = G.UPGRADES.filter((u) => G.upgradeVisible(S, u) && G.canAfford(S, u.cost)).length; return n ? [n, ''] : null; } },
   { id: 'features', folder: 'product', name: 'features.ts', show: () => S.revealed.product, badge: () => { const n = G.FEATURES.filter((f) => G.featureState(S, f) === 'open' && S.loc >= G.featureCost(S, f)).length; return n ? [n, ''] : null; } },
-  { id: 'market', folder: 'product', name: 'market.ts', show: () => S.revealed.markets, badge: () => { const k = G.MARKETS[S.market + 1]; return k && S.money >= G.marketCost(S) && S.rep >= k.rep ? ['!', 'warn'] : null; } },
+  { id: 'market', folder: 'product', name: 'market.ts', show: () => S.revealed.markets, badge: () => { const k = G.MARKETS[S.market + 1]; return k && S.money >= G.marketCost(S) && S.rep >= k.rep ? ['!', 'warn'] : G.marketFull(S) ? ['full', 'dim'] : null; } },
   { id: 'clients', folder: 'business', name: 'clients.ts', show: () => S.revealed.contracts, badge: () => { const n = S.contracts.filter((c) => G.contractOk(S, c)).length; return n ? [n, 'warn'] : S.contracts.length ? [S.contracts.length, 'dim'] : null; } },
   { id: 'exit', folder: 'business', name: 'exit.ts', show: () => S.revealed.exit, badge: () => (G.valuation(S) >= G.exitNeed(S) ? ['$', 'warn'] : null) },
   { id: 'perks', folder: 'founder', name: 'perks.ts', show: () => S.revealed.founder, badge: () => { const n = G.PERKS.filter((p) => !S.perks[p.id] && S.fp >= p.cost).length; return n ? [n, ''] : null; } },
+  { id: 'ipo', folder: 'founder', name: 'ipo.ts', show: () => S.revealed.ipo || S.ipos > 0, badge: () => (G.canIpo(S) ? ['$', 'warn'] : G.BOARD.some((b) => !S.board[b.id] && S.shares >= b.cost) ? ['•', ''] : null) },
   { id: 'challenges', folder: 'founder', name: 'challenges.ts', show: () => S.exits >= 1 || !!S.challenge, badge: () => (S.challenge ? ['⚑', 'warn'] : null) },
   { id: 'workflows', folder: '.github', name: 'workflows.yml', ico: 'YML', show: () => S.revealed.workflows, badge: () => { const n = activeBots().length; return n ? [n, 'dim'] : null; } },
   { id: 'todo', folder: '', name: 'TODO.md', ico: 'MD', md: true, show: () => true, badge: () => [`${S.goal}/${G.GOALS.length}`, 'dim'] },
@@ -515,6 +516,11 @@ function act(el, e) {
       break;
     }
     case 'decide': G.decide(S, arg); break;
+    case 'board': G.buyBoard(S, arg); break;
+    case 'ipo':
+      if (Date.now() - armed.ipo < 4000) { const n = G.ipo(S); if (n) { S = n; armed.ipo = 0; UI.file = 'ipo'; save(); } }
+      else armed.ipo = Date.now();
+      break;
     case 'toggle': S[arg] = !S[arg]; break;
     case 'challenge':
       if (armed.chId === arg && Date.now() - armed.ch < 4000) { const n = G.startChallenge(S, arg); if (n) { S = n; armed.chId = null; save(); } }
@@ -643,11 +649,11 @@ function renderWrite() {
   $('#flow-bar').style.width = S.flow + '%';
   $('#flow-txt').textContent = `flow ×${G.flowMult(S).toFixed(2)}`;
   $('#flow-hint').textContent = S.flow < 20 ? 'click or type steadily to build flow' : S.flow > 95 ? 'in the zone' : '';
-  const g = G.GOALS[S.goal];
-  region('goal', 'g' + S.goal, () => g
+  const open = G.openGoals(S), g = open[0];
+  region('goal', 'g' + S.goal + (g ? g.i : ''), () => g
     ? `<div class="goal"><span class="tag">TODO</span><span class="gt">${g.text}</span><span class="gr" id="goal-rw"></span></div><div class="bar rep thin"><div id="goal-bar"></div></div>`
     : '<div class="goal"><span class="tag">TODO</span><span class="gt">Everything on the list is done. Sell the company when you are ready.</span></div>');
-  if (g) { const [c, t] = g.prog(S); $('#goal-bar').style.width = fillPct(c, t); $('#goal-rw').textContent = G.goalReward(S); }
+  if (g) { const [c, t] = g.prog(S); $('#goal-bar').style.width = fillPct(c, t); $('#goal-rw').textContent = G.goalReward(S, g); }
   region('bugs', 'b' + S.bugs.map((b) => b.id + (S.t - b.born > 10 ? 'o' : '')).join(','), () => S.bugs.map((b) =>
     `<span class="bug ${S.t - b.born > 10 ? 'old' : ''}" data-act="squash" data-arg="${b.id}" style="left:${6 + b.x * 80}%;top:${8 + b.y * 70}%" title="Squash this bug before it escapes">🐛</span>`).join(''));
   const inc = S.incident, vir = S.viral, dec = S.decision && G.DECISIONS.find((x) => x.id === S.decision.id);
@@ -744,12 +750,13 @@ const VIEWS = {
     live: () => { for (const f of G.FEATURES) { const el = document.querySelector(`[data-fill="feat:${f.id}"]`); if (el) el.style.width = fillPct(S.loc, G.featureCost(S, f)); } },
   },
   market: {
-    key: () => { const k = G.MARKETS[S.market + 1]; return ['m', S.market, k && S.money >= G.marketCost(S) && S.rep >= k.rep].join('|'); },
+    key: () => { const k = G.MARKETS[S.market + 1]; return ['m', S.market, G.marketFull(S), k && S.money >= G.marketCost(S) && S.rep >= k.rep].join('|'); },
     html: () => {
       const k = G.MARKETS[S.market + 1];
       return `<div class="vhead"><div><div class="cm-line">// product/market.ts</div><h2>${G.MARKETS[S.market].name} market</h2><p>Each market can only pay so much. When it is nearly full, releases add little: expand, grow the market with upgrades, or take client work.</p></div></div>
         <div class="card"><div class="kv"><span>Market filled</span><b id="mk-sat"></b></div><div class="bar money"><div id="mk-bar"></div></div>
           <div class="kv"><span>Market size</span><b id="mk-cap"></b></div><div class="kv"><span>Your product income</span><b id="mk-mrr"></b></div></div>
+        ${G.marketFull(S) ? `<p class="cm-line">// this market is full: releases add almost nothing now. Save up for the next one, or take client work.</p>` : ''}
         ${k ? `<div class="card"><span class="t">Next: ${k.name}</span><span class="d">Market size ${money(k.cap * G.mods(S).cap)}/s. Your current income carries over.</span>
           <button class="btn money" data-act="market" ${S.money >= G.marketCost(S) && S.rep >= k.rep ? '' : 'disabled'}><span class="fill" data-fill="mk"></span><span>Launch ${k.name}</span><span class="num">${S.rep < k.rep ? 'needs ' + fmt(k.rep) + ' Rep' : money(G.marketCost(S))}</span></button></div>` : ''}
         <div class="section-t"><span>Markets</span></div>
@@ -794,8 +801,13 @@ const VIEWS = {
   },
   todo: {
     key: () => 'todo|' + S.goal,
-    html: () => `<div class="vhead"><div><div class="cm-line"># TODO.md</div><h2>TODO</h2><p>One goal at a time. Each finished goal pays a reward right away. The list starts over with every new company.</p></div><span class="pill rep">${S.goal} / ${G.GOALS.length}</span></div>
-      <div class="todo">${G.GOALS.map((g, i) => `<div class="${i < S.goal ? 'done' : i === S.goal ? 'now' : 'later'}"><span>${i < S.goal ? '[x]' : '[ ]'}</span><span>${i <= S.goal + 2 ? g.text : '…'}</span>${i === S.goal ? `<span class="rw">${G.goalReward(S)}</span>` : ''}</div>`).join('')}</div>`,
+    html: () => {
+      const open = G.openGoals(S).map((g) => g.i);
+      const last = open.length ? open[open.length - 1] : G.GOALS.length;
+      return `<div class="vhead"><div><div class="cm-line"># TODO.md</div><h2>TODO</h2><p>Three goals are open at a time; finish them in any order. Each one pays a reward right away. The list starts over with every new company.</p></div><span class="pill rep">${S.goal} / ${G.GOALS.length}</span></div>
+      <div class="todo">${G.GOALS.map((g) => { const done = S.goalsDone[g.i], now = open.includes(g.i);
+        return `<div class="${done ? 'done' : now ? 'now' : 'later'}"><span>${done ? '[x]' : '[ ]'}</span><span>${done || now || g.i <= last + 2 ? g.text : '…'}</span>${now ? `<span class="rw">${G.goalReward(S, g)}</span>` : ''}</div>`; }).join('')}</div>`;
+    },
   },
   workflows: {
     key: () => 'wf|' + BOTS.map((b) => +b.has() + '' + +!!S[b.id]).join(''),
@@ -806,6 +818,22 @@ const VIEWS = {
         ${b.id === 'autoRefactor' ? `<label class="full kv" for="reftarget"><span>hold debt near</span><b id="rt-lbl"></b></label><input class="full" type="range" id="reftarget" min="2" max="30" step="1" value="${Math.round(S.refactorTarget * 100)}">` : ''}</div>`
         : `<div class="wfrow off"><div><h3># ${b.name}</h3><div class="note">Not installed. Comes from ${b.from}.</div></div><span class="pill">off</span></div>`).join('')}</div>`,
     live: () => { if ($('#ad-lbl2')) $('#ad-lbl2').textContent = pct(S.autoShipDebt); if ($('#rt-lbl')) $('#rt-lbl').textContent = pct(S.refactorTarget); },
+  },
+  ipo: {
+    key: () => ['ipo', G.canIpo(S), S.shares, Object.keys(S.board).join(','), Date.now() - armed.ipo < 4000].join('|'),
+    html: () => {
+      const ok = G.canIpo(S), isArmed = Date.now() - armed.ipo < 4000;
+      return `<div class="vhead"><div><div class="cm-line">// founder/ipo.ts</div><h2>IPO</h2><p>Take a company public. It resets everything a sale resets, plus your Founder Points, perks and sale count. In return you get Shares: spend them on permanent Board Room seats, or keep them for +${S.board.dualclass ? 50 : 25}% code and income each.</p></div>
+        <span class="pill rep">${S.shares} Shares · ${S.ipos} IPO${S.ipos === 1 ? '' : 's'}</span></div>
+        <div class="card"><div class="kv"><span>Companies sold (need 3)</span><b>${Math.min(S.exits, 3)} / 3</b></div>
+          <div class="kv"><span>Valuation (need ${money(G.IPO_VALUATION)})</span><b id="ipo-val"></b></div><div class="bar rep"><div id="ipo-bar"></div></div>
+          <div class="kv"><span>Shares if you go public now</span><b id="ipo-sh"></b></div>
+          <button class="btn ${isArmed ? 'danger' : 'rep'} block" data-act="ipo" ${ok ? '' : 'disabled'}><span>${isArmed ? 'Click again to ring the bell' : 'Go public'}</span><span class="num">${ok ? '' : S.challenge ? 'not during a challenge' : 'not yet'}</span></button></div>
+        <div class="section-t"><span>Board Room</span><span class="num">${Object.keys(S.board).length} / ${G.BOARD.length} seats</span></div>
+        <div class="cards">${G.BOARD.map((b) => `<div class="card ${S.board[b.id] ? 'done' : ''}"><div class="top"><span class="t">${b.name}</span><span class="pill rep">${b.cost} sh</span></div><span class="d">${b.desc}</span>
+          ${S.board[b.id] ? '<span class="pill good">owned</span>' : `<button class="btn rep" data-act="board" data-arg="${b.id}" ${S.shares >= b.cost ? '' : 'disabled'}><span>Take the seat</span><span class="num">${b.cost} sh</span></button>`}</div>`).join('')}</div>`;
+    },
+    live: () => { $('#ipo-val').textContent = money(G.valuation(S)); $('#ipo-bar').style.width = fillPct(G.valuation(S), G.IPO_VALUATION); $('#ipo-sh').textContent = '+' + G.sharesGain(S); },
   },
   challenges: {
     key: () => ['ch', S.challenge, Object.keys(S.chDone).join(','), armed.chId && Date.now() - armed.ch < 4000 ? armed.chId : ''].join('|'),
@@ -905,12 +933,13 @@ function renderStatus() {
   if (S.revealed.rep) items.push(`<span class="it"><span class="k">★ Rep</span><span id="st-rep"></span></span>`);
   if (S.revealed.debt) items.push(`<span class="it ${sev(d) !== 'good' ? 'warn' : ''}" id="st-debt-wrap" data-act="ptab" data-arg="problems" style="cursor:pointer" title="Open Problems"><span class="k">⚠ debt</span><span id="st-debt"></span></span>`);
   if (S.fp || S.exits) items.push(`<span class="it"><span class="k">FP</span>${S.fp}</span>`);
+  if (S.shares || S.ipos) items.push(`<span class="it"><span class="k">Shares</span>${S.shares}</span>`);
   if (S.challenge) items.push(`<span class="it warn" data-act="open" data-arg="challenges" style="cursor:pointer">⚑ ${G.CHALLENGES.find((c) => c.id === S.challenge).name}</span>`);
   items.push('<span class="sp"></span>');
   items.push(`<span class="it"><span class="k">company #${S.exits + 1} · ${Math.floor(S.t / 60)} min</span></span>`);
   items.push(`<span class="it"><span class="k">speed</span></span>${[1, 5, 20].map((x) => `<button data-act="speed" data-arg="${x}" aria-pressed="${speed === x}">×${x}</button>`).join('')}`);
   items.push(`<button data-act="reset">${isArmedReset ? 'click again to reset' : 'reset'}</button>`);
-  region('status', [S.challenge, S.revealed.money, S.revealed.rep, S.revealed.debt, sev(d), S.fp, S.exits, Math.floor(S.t / 60), speed, isArmedReset, S.version.join('.')].join('|'), () => items.join(''));
+  region('status', [S.shares, S.ipos, S.challenge, S.revealed.money, S.revealed.rep, S.revealed.debt, sev(d), S.fp, S.exits, Math.floor(S.t / 60), speed, isArmedReset, S.version.join('.')].join('|'), () => items.join(''));
   $('#st-loc').textContent = fmt(S.loc) + (R.feature ? ` (+${fmt(R.feature)}/s)` : '');
   if ($('#st-money')) $('#st-money').textContent = fmt(S.money) + (S.revealed.ship ? ` (+${fmt(G.mrr(S))}/s)` : '');
   if ($('#st-rep')) $('#st-rep').textContent = fmt(S.rep);

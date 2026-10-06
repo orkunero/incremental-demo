@@ -37,8 +37,11 @@ function bot(s, active, decide, m, run) {
     }
     if (G.buyFeature(s, f.id)) buy('feature:' + f.id);
   }
-  for (const u of G.UPGRADES) if (G.upgradeVisible(s, u) && G.canAfford(s, u.cost) && G.buyUpgrade(s, u.id)) buy('upgrade:' + u.id);
   if (G.buyMarket(s)) buy('market' + s.market);
+  // a player saves up when the market is full and the next one is unlocked
+  const reserve = G.marketFull(s) ? G.marketCost(s) : 0;
+  for (const u of G.UPGRADES) if (G.upgradeVisible(s, u) && G.canAfford(s, u.cost) && (!u.cost.money || s.money - u.cost.money >= reserve) && G.buyUpgrade(s, u.id)) buy('upgrade:' + u.id);
+  if (reserve) return;
   if (G.headcount(s) >= G.seats(s) - 1 && G.moveOffice(s)) buy('office' + s.office);
   // support roles: keep rough ratios to the engineering team
   const eng = G.ENGINEERS.reduce((a, d) => a + s.staff[d.id], 0);
@@ -68,6 +71,7 @@ function bot(s, active, decide, m, run) {
 
 function play(meta, maxT, run) {
   let s = G.createState(meta);
+  for (const b of G.BOARD) G.buyBoard(s, b.id);
   for (const id of PERK_ORDER) G.buyPerk(s, id);
   if (s.perks.autohire) s.autoHire = true;
   const m = { clickLoc: 0, buys: [], first: {}, samples: [] };
@@ -84,8 +88,12 @@ function play(meta, maxT, run) {
       nextSample += 60;
     }
     const fp = G.fpGain(s);
-    if (G.valuation(s) >= G.exitNeed(s) * 1.5 || (G.valuation(s) >= G.exitNeed(s) && s.t > 45 * 60)) {
-      m.exitAt = s.t; m.exitFp = fp;
+    // sell on a plateau: the market is full and the next one is more than 3 minutes of income away
+    const stuck = G.marketFull(s) && G.marketCost(s) > s.money + G.mrr(s) * 180;
+    if ((G.canIpo(s) || G.valuation(s) >= G.exitNeed(s)) && (stuck || s.t > 60 * 60)) {
+      m.exitAt = s.t;
+      if (G.canIpo(s)) { m.exitFp = G.sharesGain(s) + ' shares (IPO)'; return { s, m, next: G.ipo(s) }; }
+      m.exitFp = fp + 'fp';
       return { s, m, next: G.exit(s) };
     }
   }
@@ -96,7 +104,7 @@ let meta = null;
 const TRACE = process.env.TRACE ? Number(process.env.TRACE) : 0;
 for (let run = 1; run <= RUNS; run++) {
   const { s, m, next } = play(meta, 120 * 60, run);
-  console.log(`\n=== RUN ${run} (perks: ${Object.keys(s.perks).join(',') || '-'}) ===`);
+  console.log(`\n=== RUN ${run} (perks: ${Object.keys(s.perks).length}, board: ${Object.keys(s.board).join(',') || '-'}, ipos: ${s.ipos}) ===`);
   for (const sm of m.samples.filter((x, i) => [1, 3, 5, 10, 15, 20, 25, 30, 40, 50, 60, 90].includes(i) || i === m.samples.length - 1)) {
     const clickShare = sm.click / Math.max(1, sm.click + sm.teamLoc);
     console.log(`  ${fm(sm.t).padStart(7)} team=${G.fmt(sm.team).padStart(6)}/s mrr=$${G.fmt(sm.mrr).padStart(6)}/s debt=${(sm.debt * 100).toFixed(0).padStart(2)}% rep=${G.fmt(sm.rep).padStart(6)} staff=${String(sm.staff).padStart(3)} upg=${String(sm.up).padStart(2)} feat=${String(sm.feat).padStart(2)} val=$${G.fmt(sm.val).padStart(6)} click%=${(clickShare * 100).toFixed(0)}`);
@@ -109,7 +117,7 @@ for (let run = 1; run <= RUNS; run++) {
     console.log(`  window ${a / 60}-${z / 60}m: purchases=${b.length} distinct_items=${new Set(b.map((x) => x.name)).size} kinds=${[...kinds].join('/')} p90_gap=${g[Math.floor(g.length * 0.9)].toFixed(0)}s max_gap=${g[g.length - 1].toFixed(0)}s`);
   }
   console.log(`  goals=${s.goal}/${G.GOALS.length} bugs=${s.stats.bugs} escaped=${s.stats.bugsEscaped} decisions=${s.stats.decisions}`);
-  console.log(`  upgrades=${Object.keys(s.done).length}/${G.UPGRADES.length} features=${Object.keys(s.features).length}/${G.FEATURES.length} ach=${Object.keys(s.ach).length}/${G.ACHIEVEMENTS.length} ships=${s.stats.ships} contracts=${s.stats.contracts} incidents=${s.stats.incidents} support=${G.SUPPORT.map((d) => s.staff[d.id]).join('/')} exit=${m.exitAt ? fm(m.exitAt) + ' +' + m.exitFp + 'fp' : 'none'}`);
+  console.log(`  upgrades=${Object.keys(s.done).length}/${G.UPGRADES.length} features=${Object.keys(s.features).length}/${G.FEATURES.length} ach=${Object.keys(s.ach).length}/${G.ACHIEVEMENTS.length} ships=${s.stats.ships} contracts=${s.stats.contracts} incidents=${s.stats.incidents} support=${G.SUPPORT.map((d) => s.staff[d.id]).join('/')} exit=${m.exitAt ? fm(m.exitAt) + ' +' + m.exitFp : 'none'}`);
   if (!next) break;
   meta = next;
 }

@@ -8,9 +8,9 @@ the one every developer knows: **ship fast, or keep the code clean?**
 - **Language:** English only. **Look:** the whole game is an IDE window, light and dark theme.
 - **Playable demo:** https://claude.ai/artifact/DTgxc51UKKGSnmM1pwu5TS
   (source: `prototype/`; all numbers live in `prototype/core.js`).
-- **Status:** Draft v0.6. v0.6 adds the systems most good incrementals have and v0.5 lacked:
-  a goal list, an active "golden cookie" mechanic (bugs), decision events, automation as a
-  reward, challenge runs, statistics and settings with save export.
+- **Status:** Draft v0.7. v0.7 is a self-playtest pass: market size became a real ceiling
+  (it was being bypassed, so growth exploded after the first sale target), parallel goals,
+  safe offline progress, rule tests, and the second prestige layer (IPO + Board Room).
   History: [Playtest 01](playtest-01.md).
 
 ---
@@ -131,8 +131,20 @@ After all bonuses, pay is capped at 60 s of your market size, so client work can
 2 slots, more from upgrades and the API.
 
 ### 5.8 Markets
-Six markets (Hometown → Multiverse). MRR saturates at `cap × (1 − e^(−raw/cap))`;
-expanding keeps your income and raises the cap. This is the main soft wall.
+Six markets. MRR = `cap × (1 − e^(−raw/cap))` × debt quality × prestige bonuses, and
+**market size is a hard ceiling**: "release income" upgrades make each shipped line fill the
+market faster, they never lift the ceiling. Expanding keeps your income and raises the cap.
+When a market is >85% full and the next one is unlocked, `market.ts` shows "full" and the log
+tells you to save up. These plateaus are the natural moments to sell.
+
+| Market | Size ($/s) | Cost | Rep |
+|---|---|---|---|
+| Hometown | 15 | — | — |
+| Nationwide | 300 | $900 | 30 |
+| Continental | 15K | $60K | 800 |
+| Global | 750K | $40M | 60K |
+| Interplanetary | 40M | $2B | 400K |
+| Multiverse | 2B | $200B | 20M |
 
 ### 5.9 Events
 - **Incident** — after a release (chance `1.6·(debt − 8%)`, never in the first 5 releases) or at
@@ -146,9 +158,11 @@ expanding keeps your income and raises the cap. This is the main soft wall.
   an angel investor. Most trade money, code, debt or Reputation now against something later.
 
 ### 5.10 Exit and Founder perks
-- Valuation = MRR × 500. The first sale needs $50M; **each sale needs 4× more**, so every
-  company has to go further (new markets, offices and features).
-- Founder Points total = `floor(2 · ∛(everything ever sold / 2.5M))`; each sale adds the difference.
+- Valuation = MRR × 500. The first sale needs $50M; **each sale needs 10× more**, so every
+  company has to reach a new market tier.
+- Founder Points total = `floor(2 · ∛(everything ever sold / 100M))`; each sale adds the difference
+  (about +4 for the first sale on the Global plateau, +12 when a company reaches Interplanetary).
+- Head starts from perks (and Board Room seats) apply right away when bought, and to every new company.
 - Unspent FP: +10% code and income each. 17 perks cost 1–6 FP: starting bonuses, keep
   Tools/Process upgrades, auto-hiring, starting bots, bigger bug and decision payouts,
   cheaper hires/features/markets, more FP per sale.
@@ -168,8 +182,9 @@ hidden easter egg.
 minutes of income, so the list never fills with far-off items.
 
 ### 5.13 Goals (`TODO.md`)
-24 goals in order, one shown at a time under the editor with a progress bar and its reward
-(money, code or Reputation, scaled to your income). They walk a new player through every
+24 goals; the first three unfinished ones are open at a time and can be done in any order, so a
+goal you skip (say, never hiring support roles) never blocks the list. The first open goal is shown
+under the editor with a progress bar and its reward (money, code or Reputation, scaled to income). They walk a new player through every
 system: first client, first hire, first release, a pricing choice, the first support role,
 new markets, up to the sale target. The list restarts with each company.
 
@@ -179,13 +194,13 @@ After the first sale. Starting one ends the current company with no Founder Poin
 | Challenge | Rule | Goal | Permanent reward |
 |---|---|---|---|
 | Solo Founder | No hiring; your clicks ×5 | $250K | Clicks ×2, flow builds 50% faster |
-| Legacy Codebase | Start at 40% debt; refactoring ×0.5 | $25M | Refactoring ×1.5 |
-| Bootstrapped | No client work | $25M | Product income ×1.25 |
-| Move Fast and Break Things | Instant deploys; incidents ×3 likely and ×3 longer | $25M | Incidents −25% |
-| Ramen Budget | Hires, offices, markets cost ×3 | $10M | Hires −10% |
-| Cowboy Coding | No Process upgrades | $10M | All bugs −15% |
+| Legacy Codebase | Start at 40% debt; refactoring ×0.5 | $100M | Refactoring ×1.5 |
+| Bootstrapped | No client work | $100M | Releases earn 25% more |
+| Move Fast and Break Things | Instant deploys; incidents ×3 likely and ×3 longer | $100M | Incidents −25% |
+| Ramen Budget | Hires, offices, markets cost ×3 | $30M | Hires −10% |
+| Cowboy Coding | No Process upgrades | $50M | All bugs −15% |
 
-Measured: each is completable in 22–44 min with a few early perks.
+Measured: each is completable in 26–56 min with a few early perks.
 
 ### 5.15 Automation (`.github/workflows.yml`)
 Bots come from upgrades (and two perks) and can be switched off: CI/CD (auto-ship under a
@@ -196,26 +211,38 @@ Dependabot (installs upgrades under 10% of what you have), Bug Triage Bot, Recru
 `stats.md`: code per second by role, every income multiplier, this company and all-time totals.
 `settings.json`: number format (1.23M or 1.23e6), theme (system/light/dark), export and import
 of the save as text. Hiring cost growth is ×1.2 per hire.
+Offline progress (up to 2 h, 8 h with *Night Owl*) runs the economy but skips bugs, decisions,
+trending and random incidents, so you never come back to a pile of escaped bugs.
+
+### 5.17 IPO and the Board Room (`ipo.ts`)
+The second prestige layer. `ipo.ts` appears after the third sale. Going public needs a $20B
+valuation (outside challenges) and resets everything a sale resets, plus Founder Points, perks
+and the sale count (so the sale target drops back to $50M). It gives **Shares**:
+`floor(√(everything ever taken public / 2B))` in total. Unspent Shares give +25% code and income
+each; or spend them on 10 permanent Board Room seats (1–8 Shares): ×2 Founder Points per sale,
+starting team, starting Reputation and market, $1M head start, keep cheap perks through an IPO,
+all bots from the start, double seats, double market size, cheaper features, and Dual-class
+Shares (+50% per unspent Share).
 
 ## 6. Measured pacing (`prototype/sim.js`, scripted player)
 
-| Company | Sold at (active) | Sold at (casual) | Upgrades | Features | Achievements |
-|---|---|---|---|---|---|
-| 1 | 31–39 min | 39–43 min | 55 / 80 | 13 / 18 | 20 / 39 |
-| 2 | 20 min | 26–28 min | 55 | 13 | 25 |
-| 3 | 24 min | 31 min | 58 | 14 | 27 |
-| 4 | 13 min | | 55 | 14 | 28 |
-| 5 | 13 min | | 60 | 15 | 30 |
+| Company | Sold at (active) | Result |
+|---|---|---|
+| 1 | 32–35 min | +4 Founder Points (Global plateau) |
+| 2 | 22 min | +2 FP |
+| 3 | 44–52 min | +12 FP (reaches Interplanetary) |
+| 4 | 59 min | **IPO**, +9 Shares (~2.7 h total) |
+| 5–7 | 15–35 min each | second cycle, faster with Board Room seats |
+| 8 | 36 min | second IPO, +4 Shares (~1.8 h after the first) |
 
-- Active = 5 clicks/s, squashes bugs, answers decisions; casual = clicks for 10 minutes, then idles.
-  Ranges come from the scripted player's random choices.
+- Active = 5 clicks/s, squashes bugs, answers decisions, saves up when a market is full, sells on
+  a plateau. Casual = clicks for 10 minutes, then idles: first sale at ~40 min.
 - Gap between purchases (p90) stays under 25 s for 30 minutes; the longest wait is about 1 min.
-- An active player finishes all 24 goals in the first company.
-- Known issue: companies 4–5 get short (~13 min) once many perks stack. Next tuning target.
+- `prototype/test.js` checks the rules (31 checks: offline catch-up, challenges, perks, IPO, save
+  round trip, long-run stability).
 
 ## 7. Later (not in the demo)
 
-- **IPO** prestige layer with a Board Room shop.
 - **Talents:** rare named hires with unique effects that survive an Exit.
 
 ## 8. Technical plan
@@ -230,6 +257,7 @@ src/core/      rules, content data, modifiers, save/migrations  (pure, Vitest)
 src/platform/  storage, clock, RNG adapters per platform
 src/ui/web/    IDE-style DOM rendering
 tools/sim.ts   pacing simulation, run in CI to catch balance regressions
+tools/test.ts  rule checks (today: prototype/test.js)
 ```
 
 ## 9. Roadmap
@@ -240,12 +268,12 @@ tools/sim.ts   pacing simulation, run in CI to catch balance regressions
 | **M1** | Port the IDE UI; save/load with versioned migrations |
 | **M2** | Balance pass with real playtesters; sim in CI |
 | **M3** | Talents |
-| **M4** | IPO + Board Room |
+| **M4** | IPO + Board Room (done in the prototype; port with M1) |
 | **M5** | Polish, mobile pass, GitHub Pages deploy → v1.0 |
 
 ## 10. Open questions
 
 1. Is the IDE layout easier to read than v0.3's single screen?
 2. Do the strategy forks feel like real choices?
-3. First sale at ~40 min, later ones 20–35 min: does that feel right?
+3. First sale at ~35–40 min, first IPO at ~2.7 h: does that feel right?
 4. Which new system adds the most: goals, bugs, decisions, bots or challenges?

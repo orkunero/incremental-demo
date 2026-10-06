@@ -25,7 +25,7 @@
   const SUPPORT = [
     { id: 'qa', name: 'QA Engineer', cost: 800, rep: 40, note: 'Each one: all code has 3% fewer bugs.', fx: (m, n) => { m.allBug *= Math.pow(0.97, n); } },
     { id: 'marketer', name: 'Marketer', cost: 1500, rep: 80, note: 'Each one: +4% Reputation, trending events come sooner.', fx: (m, n) => { m.rep *= 1 + 0.04 * n; m.viralEvery *= Math.pow(0.97, n); } },
-    { id: 'pm', name: 'Product Manager', cost: 2500, rep: 150, note: 'Each one: +5% income from your product.', fx: (m, n) => { m.mrr *= 1 + 0.05 * n; } },
+    { id: 'pm', name: 'Product Manager', cost: 2500, rep: 150, note: 'Each one: releases earn 5% more.', fx: (m, n) => { m.mrr *= 1 + 0.05 * n; } },
     { id: 'designer', name: 'Designer', cost: 6000, rep: 400, note: 'Each one: every market is 3% bigger.', fx: (m, n) => { m.cap *= 1 + 0.03 * n; } },
     { id: 'sre', name: 'Site Reliability Eng.', cost: 25000, rep: 1500, note: 'Each one: incidents 6% less likely and shorter.', fx: (m, n) => { m.incident *= Math.pow(0.94, n); m.incDur *= Math.pow(0.95, n); } },
   ];
@@ -44,11 +44,11 @@
   // Market size caps MRR: income saturates as you approach the cap.
   const MARKETS = [
     { name: 'Hometown', cap: 15, cost: 0, rep: 0 },
-    { name: 'Nationwide', cap: 150, cost: 900, rep: 30 },
-    { name: 'Continental', cap: 4000, cost: 60000, rep: 800 },
-    { name: 'Global', cap: 100000, cost: 8e6, rep: 25000 },
-    { name: 'Interplanetary', cap: 3e6, cost: 1.5e8, rep: 150000 },
-    { name: 'Multiverse', cap: 1e8, cost: 2e10, rep: 5e6 },
+    { name: 'Nationwide', cap: 300, cost: 900, rep: 30 },
+    { name: 'Continental', cap: 15000, cost: 60000, rep: 800 },
+    { name: 'Global', cap: 750000, cost: 4e7, rep: 60000 },
+    { name: 'Interplanetary', cap: 4e7, cost: 2e9, rep: 4e5 },
+    { name: 'Multiverse', cap: 2e9, cost: 2e11, rep: 2e7 },
   ];
 
   // ---------- upgrades ----------
@@ -147,14 +147,14 @@
   U('brand', 'people', 'Employer Branding', 'All hires cost 25% less.', { money: 5e6 }, (s) => headcount(s) >= 120, (m) => { m.allCost *= 0.75; });
 
   // Growth: product income, Reputation, markets.
-  U('abtest', 'growth', 'A/B Testing', 'Product income +15%.', { money: 1500 }, (s) => s.stats.ships >= 5, (m) => { m.mrr *= 1.15; });
+  U('abtest', 'growth', 'A/B Testing', 'Release income +15%.', { money: 1500 }, (s) => s.stats.ships >= 5, (m) => { m.mrr *= 1.15; });
   U('newsletter', 'growth', 'Newsletter', 'Reputation gains +25%.', { money: 2000 }, (s) => s.rep >= 100, (m) => { m.rep *= 1.25; });
   U('seo', 'growth', 'SEO', 'Every market is 20% bigger.', { money: 6000 }, (s) => saturation(s) >= 0.5, (m) => { m.cap *= 1.2; });
-  U('referral', 'growth', 'Referral Program', 'Product income +20%.', { money: 25000 }, (s) => s.stats.ships >= 30, (m) => { m.mrr *= 1.2; });
+  U('referral', 'growth', 'Referral Program', 'Release income +20%.', { money: 25000 }, (s) => s.stats.ships >= 30, (m) => { m.mrr *= 1.2; });
   U('talks', 'growth', 'Conference Talks', 'Trending events come 30% sooner.', { money: 15000 }, (s) => s.stats.virals >= 2, (m) => { m.viralEvery *= 0.7; });
   U('influencer', 'growth', 'Influencer Deals', 'Trending events boost income ×3 instead of ×2.', { money: 80000 }, (s) => s.stats.virals >= 4, (m) => { m.viralBoost = Math.max(m.viralBoost, 3); });
   U('press', 'growth', 'Press Kit', 'Reputation gains ×1.5.', { money: 150000 }, (s) => s.rep >= 2000, (m) => { m.rep *= 1.5; });
-  U('annual', 'growth', 'Annual Plans', 'Product income ×1.3.', { money: 400000 }, (s) => s.market >= 2, (m) => { m.mrr *= 1.3; });
+  U('annual', 'growth', 'Annual Plans', 'Release income ×1.3.', { money: 400000 }, (s) => s.market >= 2, (m) => { m.mrr *= 1.3; });
   U('community', 'growth', 'Community Forum', 'Every market is 30% bigger.', { money: 1.5e6 }, (s) => s.market >= 3, (m) => { m.cap *= 1.3; });
 
   // Clients.
@@ -167,24 +167,24 @@
   // ---------- product features ----------
   // Built with unshipped code. Some come in pairs: pick one per company.
   const FEATURES = [
-    { id: 'login', tier: 1, name: 'Accounts & Login', desc: 'Product income +25%.', cost: 50, fx: (m) => { m.mrr *= 1.25; } },
+    { id: 'login', tier: 1, name: 'Accounts & Login', desc: 'Release income +25%.', cost: 50, fx: (m) => { m.mrr *= 1.25; } },
     { id: 'dashboard', tier: 1, name: 'Dashboard', desc: 'Releases give 25% more Reputation.', cost: 400, req: ['login'], fx: (m) => { m.rep *= 1.25; } },
     { id: 'freemium', tier: 2, fork: 'pricing', name: 'Freemium', desc: 'Markets 50% bigger, Reputation +50%, but each line earns 20% less.', cost: 1500, req: ['login'], fx: (m) => { m.cap *= 1.5; m.rep *= 1.5; m.perLoc *= 0.8; } },
     { id: 'enterprise', tier: 2, fork: 'pricing', name: 'Enterprise Sales', desc: 'Each line earns ×1.5, client work pays 50% more, but markets are 20% smaller.', cost: 1500, req: ['login'], fx: (m) => { m.perLoc *= 1.5; m.pay *= 1.5; m.cap *= 0.8; } },
-    { id: 'payments', tier: 2, name: 'Payments', desc: 'Product income ×1.3.', cost: 3000, req: ['login'], fx: (m) => { m.mrr *= 1.3; } },
+    { id: 'payments', tier: 2, name: 'Payments', desc: 'Release income ×1.3.', cost: 3000, req: ['login'], fx: (m) => { m.mrr *= 1.3; } },
     { id: 'notifications', tier: 3, name: 'Notifications', desc: 'Trending events come 30% sooner.', cost: 6000, req: ['dashboard'], fx: (m) => { m.viralEvery *= 0.7; } },
     { id: 'api', tier: 3, name: 'Public API', desc: '+1 client slot. Unlocks Integration jobs that pay ×2.', cost: 15000, req: ['payments'], fx: (m) => { m.slots += 1; m.integrations = true; } },
     { id: 'mobile', tier: 3, fork: 'platform', name: 'Mobile App', desc: 'Markets 30% bigger, Reputation ×1.3.', cost: 30000, req: ['payments'], fx: (m) => { m.cap *= 1.3; m.rep *= 1.3; } },
-    { id: 'desktop', tier: 3, fork: 'platform', name: 'Desktop App', desc: 'Product income ×1.3, incidents 30% less likely.', cost: 30000, req: ['payments'], fx: (m) => { m.mrr *= 1.3; m.incident *= 0.7; } },
-    { id: 'search', tier: 4, name: 'Search', desc: 'Product income ×1.25.', cost: 60000, req: ['dashboard'], fx: (m) => { m.mrr *= 1.25; } },
+    { id: 'desktop', tier: 3, fork: 'platform', name: 'Desktop App', desc: 'Release income ×1.3, incidents 30% less likely.', cost: 30000, req: ['payments'], fx: (m) => { m.mrr *= 1.3; m.incident *= 0.7; } },
+    { id: 'search', tier: 4, name: 'Search', desc: 'Release income ×1.25.', cost: 60000, req: ['dashboard'], fx: (m) => { m.mrr *= 1.25; } },
     { id: 'analytics', tier: 4, name: 'Analytics', desc: 'Releases give 30% more Reputation, markets 10% bigger.', cost: 120000, req: ['search'], fx: (m) => { m.rep *= 1.3; m.cap *= 1.1; } },
     { id: 'i18n', tier: 4, name: 'Localization', desc: 'Every market is 30% bigger.', cost: 500000, req: ['analytics'], fx: (m) => { m.cap *= 1.3; } },
-    { id: 'integrations', tier: 5, name: 'Integrations Marketplace', desc: 'Product income ×1.3, markets 15% bigger.', cost: 300000, req: ['api'], fx: (m) => { m.mrr *= 1.3; m.cap *= 1.15; } },
-    { id: 'ai', tier: 5, fork: 'moat', name: 'AI Assistant', desc: 'Product income ×2, but all code has 20% more bugs.', cost: 1e6, req: ['search'], fx: (m) => { m.mrr *= 2; m.allBug *= 1.2; } },
+    { id: 'integrations', tier: 5, name: 'Integrations Marketplace', desc: 'Release income ×1.3, markets 15% bigger.', cost: 300000, req: ['api'], fx: (m) => { m.mrr *= 1.3; m.cap *= 1.15; } },
+    { id: 'ai', tier: 5, fork: 'moat', name: 'AI Assistant', desc: 'Release income ×2, but all code has 20% more bugs.', cost: 1e6, req: ['search'], fx: (m) => { m.mrr *= 2; m.allBug *= 1.2; } },
     { id: 'selfhost', tier: 5, fork: 'moat', name: 'Self-hosting', desc: 'Debt hurts income half as much, client work pays ×2.', cost: 1e6, req: ['search'], fx: (m) => { m.debtHurt *= 0.5; m.pay *= 2; } },
     { id: 'sso', tier: 6, name: 'SSO & Audit Logs', desc: 'Client work pays ×2.', cost: 2e6, req: ['integrations'], fx: (m) => { m.pay *= 2; } },
-    { id: 'realtime', tier: 6, name: 'Real-time Collaboration', desc: 'Product income ×2.', cost: 5e6, req: ['i18n'], fx: (m) => { m.mrr *= 2; } },
-    { id: 'ecosystem', tier: 7, name: 'Platform Ecosystem', desc: 'Product income ×2, Reputation ×2.', cost: 2e7, req: ['realtime', 'sso'], fx: (m) => { m.mrr *= 2; m.rep *= 2; } },
+    { id: 'realtime', tier: 6, name: 'Real-time Collaboration', desc: 'Release income ×2.', cost: 5e6, req: ['i18n'], fx: (m) => { m.mrr *= 2; } },
+    { id: 'ecosystem', tier: 7, name: 'Platform Ecosystem', desc: 'Release income ×2, Reputation ×2.', cost: 2e7, req: ['realtime', 'sso'], fx: (m) => { m.mrr *= 2; m.rep *= 2; } },
   ];
 
   // ---------- founder perks (bought with Founder Points after selling) ----------
@@ -248,6 +248,8 @@
     ['uptime', 'Zero Downtime', 'Ship 50 releases in one company without an incident.', (s) => s.stats.ships >= 50 && s.stats.incidents === 0],
     ['challenger', 'Challenger', 'Complete a challenge.', (s) => Object.keys(s.chDone).length >= 1],
     ['allchallenges', 'Hard Mode', 'Complete every challenge.', (s) => CHALLENGES.every((c) => s.chDone[c.id])],
+    ['ipo', 'Ring the Bell', 'Take a company public.', (s) => s.ipos >= 1],
+    ['chairman', 'Chairman of the Board', 'Own 5 Board Room seats.', (s) => Object.keys(s.board).length >= 5]
   ].map(([id, name, desc, check]) => ({ id, name, desc, check }));
 
   // ---------- automation (workflows.yml) ----------
@@ -303,7 +305,7 @@
       b: ['Keep it', '+45 s of income from licensing', (s) => { s.money += inc(s, 45, 100); }] },
     { id: 'poach', title: 'Poaching attempt', text: 'BigCorp is trying to hire away one of your Senior Devs.', when: (s) => s.staff.senior >= 2,
       a: ['Counter-offer', 'pay 1 min of income', (s) => { s.money = Math.max(0, s.money - Math.max(500, mrr(s) * 60)); }],
-      b: ['Let them go', 'lose a Senior Dev', (s) => { s.staff.senior--; touch(s); }] },
+      b: ['Let them go', 'lose a Senior Dev', (s) => { if (s.staff.senior > 0) { s.staff.senior--; touch(s); } }] },
     { id: 'audit', title: 'Security audit', text: 'A big customer asks for a security audit before signing.',
       a: ['Do the audit', 'costs 30 s of code, incidents −50% for 5 min', (s) => { s.loc = Math.max(0, s.loc - rates(s).feature * 30); addTemp(s, 'incident', 0.5, 300); }],
       b: ['Skip it', '−5% Reputation', (s) => { s.rep *= 0.95; }] },
@@ -319,16 +321,31 @@
   const CHALLENGES = [
     { id: 'solo', name: 'Solo Founder', rule: 'You cannot hire anyone, but your own clicks are ×5.', goal: 2.5e5, reward: 'Clicks ×2 and flow builds 50% faster, forever.',
       fx: (m) => { m.click *= 5; }, win: (m) => { m.click *= 2; m.flowGain *= 1.5; } },
-    { id: 'legacy', name: 'Legacy Codebase', rule: 'Start with 40% tech debt; refactoring is half as effective.', goal: 2.5e7, reward: 'Refactoring is 50% more effective, forever.',
+    { id: 'legacy', name: 'Legacy Codebase', rule: 'Start with 40% tech debt; refactoring is half as effective.', goal: 1e8, reward: 'Refactoring is 50% more effective, forever.',
       fx: (m) => { m.refactor *= 0.5; }, win: (m) => { m.refactor *= 1.5; } },
-    { id: 'bootstrap', name: 'Bootstrapped', rule: 'No client work.', goal: 2.5e7, reward: 'Product income ×1.25, forever.',
+    { id: 'bootstrap', name: 'Bootstrapped', rule: 'No client work.', goal: 1e8, reward: 'Release income ×1.25, forever.',
       fx: () => {}, win: (m) => { m.mrr *= 1.25; } },
-    { id: 'movefast', name: 'Move Fast and Break Things', rule: 'Deploys are instant, but incidents are 3× as likely and last 3× longer.', goal: 2.5e7, reward: 'Incidents 25% less likely, forever.',
+    { id: 'movefast', name: 'Move Fast and Break Things', rule: 'Deploys are instant, but incidents are 3× as likely and last 3× longer.', goal: 1e8, reward: 'Incidents 25% less likely, forever.',
       fx: (m) => { m.deploy *= 0.05; m.incident *= 3; m.incDur *= 3; }, win: (m) => { m.incident *= 0.75; } },
-    { id: 'ramen', name: 'Ramen Budget', rule: 'Hires, offices and markets cost 3×.', goal: 1e7, reward: 'Hires cost 10% less, forever.',
+    { id: 'ramen', name: 'Ramen Budget', rule: 'Hires, offices and markets cost 3×.', goal: 3e7, reward: 'Hires cost 10% less, forever.',
       fx: (m) => { m.allCost *= 3; m.expandCost *= 3; }, win: (m) => { m.allCost *= 0.9; } },
-    { id: 'cowboy', name: 'Cowboy Coding', rule: 'No Process upgrades.', goal: 1e7, reward: 'All code has 15% fewer bugs, forever.',
+    { id: 'cowboy', name: 'Cowboy Coding', rule: 'No Process upgrades.', goal: 5e7, reward: 'All code has 15% fewer bugs, forever.',
       fx: () => {}, win: (m) => { m.allBug *= 0.85; } },
+  ];
+
+  // ---------- IPO and the Board Room (second prestige layer) ----------
+  const IPO_VALUATION = 2e10;
+  const BOARD = [
+    { id: 'parachute', cost: 1, name: 'Golden Parachute', desc: 'Selling a company gives ×2 Founder Points.', fx: (m) => { m.fpGain *= 2; } },
+    { id: 'alumni', cost: 1, name: 'Alumni Network', desc: 'Start every company with 6 Junior Devs, 2 Senior Devs and a small office.' },
+    { id: 'household', cost: 2, name: 'Household Name', desc: 'Start every company with 2,000 Reputation and the Nationwide market.' },
+    { id: 'venture', cost: 2, name: 'Venture Arm', desc: 'Start every company with $1M.' },
+    { id: 'memory', cost: 3, name: 'Founder Memory', desc: 'Keep every perk that costs 1–2 Founder Points through an IPO.' },
+    { id: 'suite', cost: 3, name: 'Automation Suite', desc: 'Start every company with all workflow bots and CI/CD.' },
+    { id: 'campus2', cost: 4, name: 'Second Campus', desc: 'Every office has twice the seats.', fx: (m) => { m.seats *= 2; } },
+    { id: 'marketmaker', cost: 5, name: 'Market Maker', desc: 'Every market is twice as big.', fx: (m) => { m.cap *= 2; } },
+    { id: 'rnd', cost: 6, name: 'R&D Lab', desc: 'Product features cost 50% less.', fx: (m) => { m.featureCost *= 0.5; } },
+    { id: 'dualclass', cost: 8, name: 'Dual-class Shares', desc: 'Each unspent Share gives +50% code and income instead of +25%.' },
   ];
 
   const CLIENTS = [
@@ -366,11 +383,12 @@
     for (const p of PERKS) if (s.perks[p.id] && p.fx) p.fx(m);
     for (const d of SUPPORT) if (s.staff[d.id]) d.fx(m, s.staff[d.id]);
     for (const c of CHALLENGES) if (s.chDone[c.id]) c.win(m);
+    for (const b of BOARD) if (s.board[b.id] && b.fx) b.fx(m);
     if (s.challenge) CHALLENGES.find((c) => c.id === s.challenge).fx(m);
     if (s.perks.autohire) m.autoHire = true;
     const ach = Object.keys(s.ach).length;
     // unspent Founder Points: +10% each; achievements: +1% each
-    m.prestige = (1 + 0.1 * s.fp) * (1 + 0.01 * ach);
+    m.prestige = (1 + 0.1 * s.fp) * (1 + 0.01 * ach) * (1 + (s.board.dualclass ? 0.5 : 0.25) * s.shares);
     if (modsCache) modsCache.set(s, { key, m });
     return m;
   }
@@ -436,23 +454,24 @@
   }
   const saturation = (s) => 1 - Math.exp(-s.mrrRaw / cap(s));
   // MRR before temporary event effects. Saturates at the market cap.
-  const baseMrr = (s) => cap(s) * saturation(s) * quality(s) * mods(s).mrr * mods(s).prestige * s.dilution;
+  // Market size is a hard ceiling: release-income upgrades fill the market faster, they never lift it.
+  const baseMrr = (s) => cap(s) * saturation(s) * quality(s) * mods(s).prestige * s.dilution;
   const mrr = (s) => baseMrr(s) * (s.incident ? 0.5 : 1) * (s.t < s.boostUntil ? s.boostMult : 1);
   // MRR the current build would add if shipped now (after market saturation and debt).
   function shipGain(s) {
-    const add = s.loc * MRR_PER_LOC * mods(s).perLoc;
+    const add = s.loc * MRR_PER_LOC * mods(s).perLoc * mods(s).mrr;
     const c = cap(s);
-    return c * (Math.exp(-s.mrrRaw / c) - Math.exp(-(s.mrrRaw + add) / c)) * quality(s) * mods(s).mrr * mods(s).prestige;
+    return c * (Math.exp(-s.mrrRaw / c) - Math.exp(-(s.mrrRaw + add) / c)) * quality(s) * mods(s).prestige * s.dilution;
   }
   // Release-day sales: 90 seconds of the income this release adds, so they shrink as the market fills up.
   const launchPay = (s) => shipGain(s) * LAUNCH_SECONDS;
   const shipRep = (s) => 0.4 * Math.sqrt(s.loc) * quality(s) * mods(s).rep;
   const clickValue = (s) => (1 + mods(s).clickPct * rates(s).team) * flowMult(s) * mods(s).click * mods(s).prestige;
   const valuation = (s) => baseMrr(s) * VALUATION_MULT;
-  // Buyers expect more from a serial founder: each sale needs a 4× bigger valuation.
-  const exitNeed = (s) => EXIT_VALUATION * Math.pow(4, s.exits);
+  // Buyers expect more from a serial founder: each sale needs a 10× bigger valuation.
+  const exitNeed = (s) => EXIT_VALUATION * Math.pow(10, s.exits);
   // Founder Points grow with the cube root of everything you have ever sold, so each sale adds a bit less.
-  const fpTotalFor = (sold) => Math.floor(2 * Math.cbrt(sold / 2.5e6));
+  const fpTotalFor = (sold) => Math.floor(2 * Math.cbrt(sold / 1e8));
   const fpGain = (s) => Math.floor(Math.max(0, fpTotalFor(s.soldTotal + valuation(s)) - fpTotalFor(s.soldTotal)) * mods(s).fpGain);
   // No risk below 8% debt, and the first 5 releases are always safe.
   const incidentChance = (s) => (s.stats.ships < 5 ? 0 : Math.min(0.8, Math.max(0, debtPct(s) - 0.08) * 1.6) * mods(s).incident * tempMult(s, 'incident'));
@@ -461,6 +480,8 @@
   const officeCost = (s) => { const o = OFFICES[s.office + 1]; return o ? o.cost * mods(s).expandCost : Infinity; };
   const marketCost = (s) => { const k = MARKETS[s.market + 1]; return k ? k.cost * mods(s).expandCost : Infinity; };
   const featureCost = (s, f) => f.cost * mods(s).featureCost;
+  // The current market is nearly full and the next one is unlocked: time to save up for it.
+  const marketFull = (s) => saturation(s) > 0.85 && !!MARKETS[s.market + 1] && s.rep >= MARKETS[s.market + 1].rep;
 
   // ---------- state ----------
   function createState(meta) {
@@ -484,19 +505,31 @@
       version: [0, 0],
       fp: meta.fp || 0, fpTotal: meta.fpTotal || 0, exits: meta.exits || 0, soldTotal: meta.soldTotal || 0,
       perks, ach: Object.assign({}, meta.ach),
-      goal: 0, bugs: [], bugSeq: 0, nextBug: 0, decision: null, nextDecision: 0, temp: [], dilution: 1,
+      goal: 0, goalsDone: {}, bugs: [], bugSeq: 0, nextBug: 0, decision: null, nextDecision: 0, temp: [], dilution: 1,
       autoDeliver: true, autoRefactor: true, refactorTarget: 0.1, autoUpgrade: true, autoBug: true,
       challenge: meta.challenge || null, chDone: Object.assign({}, meta.chDone),
+      shares: meta.shares || 0, sharesTotal: meta.sharesTotal || 0, ipos: meta.ipos || 0, ipoTotal: meta.ipoTotal || 0, board: Object.assign({}, meta.board),
       events: [], // transient: UI reads and clears
     };
-    if (perks.serial) { s.money += 500; s.office = 1; }
-    if (perks.network) s.rep += 100;
-    if (perks.angel) s.money += 25000;
-    if (perks.autodeploy) s.done.cicd = true;
     for (const id of meta.keep || []) s.done[id] = true;
-    if (perks.botarmy) { s.done.zapier = true; s.done.refactorbot = true; }
+    for (const id in perks) startBonus(s, id);
+    for (const id in s.board) startBonus(s, id);
     if (s.challenge === 'legacy') { s.written = 1000; s.debt = 400; }
     return s;
+  }
+
+  // Head starts from perks and Board Room seats: applied to every new company, and right away when bought.
+  function startBonus(s, id) {
+    if (id === 'serial') { s.money += 500; s.office = Math.max(s.office, 1); }
+    if (id === 'network') s.rep += 100;
+    if (id === 'angel') s.money += 25000;
+    if (id === 'autodeploy') s.done.cicd = true;
+    if (id === 'botarmy') { s.done.zapier = true; s.done.refactorbot = true; }
+    if (id === 'alumni') { s.staff.junior += 6; s.staff.senior += 2; s.office = Math.max(s.office, 2); }
+    if (id === 'household') { s.rep += 2000; s.market = Math.max(s.market, 1); }
+    if (id === 'venture') s.money += 1e6;
+    if (id === 'suite') { for (const u of UPGRADES) if (u.cat === 'automation') s.done[u.id] = true; s.done.cicd = true; }
+    s.rev++;
   }
 
   function log(s, text, kind) {
@@ -533,7 +566,7 @@
     const d = debtPct(s);
     if (lines >= 1000 && d < 0.02) s.flags.cleanShip = true;
     if (d >= 0.4) s.flags.yolo = true;
-    s.mrrRaw += lines * MRR_PER_LOC * mods(s).perLoc;
+    s.mrrRaw += lines * MRR_PER_LOC * mods(s).perLoc * mods(s).mrr;
     s.rep += repGain;
     s.money += sales;
     s.stats.runMoney += sales;
@@ -692,8 +725,8 @@
     if (!p || s.perks[id] || s.fp < p.cost) return false;
     s.fp -= p.cost;
     s.perks[id] = true;
+    startBonus(s, id);
     touch(s);
-    if (id === 'autodeploy') s.done.cicd = true;
     log(s, `Founder perk: ${p.name}.`, 'reveal');
     return true;
   }
@@ -727,10 +760,7 @@
   // Abandon this company (no Founder Points) and start a new one under a challenge rule.
   function startChallenge(s, id) {
     if (!CHALLENGES.some((c) => c.id === id) || s.chDone[id]) return null;
-    const n = createState({
-      fp: s.fp, fpTotal: s.fpTotal, exits: s.exits, soldTotal: s.soldTotal, perks: s.perks, ach: s.ach, life: s.life,
-      flags: s.flags, revealed: s.revealed, feed: s.feed, chDone: s.chDone, challenge: id,
-    });
+    const n = createState(carry(s, { challenge: id }));
     log(n, `Challenge started: ${CHALLENGES.find((c) => c.id === id).name}.`, 'reveal');
     return n;
   }
@@ -778,15 +808,50 @@
 
   function setRefactor(s, v) { s.refactor = Math.min(0.9, Math.max(0, v)); }
 
+  // Everything that survives a reset. Each reset overrides only what it changes.
+  function carry(s, over) {
+    return Object.assign({
+      fp: s.fp, fpTotal: s.fpTotal, exits: s.exits, soldTotal: s.soldTotal, perks: s.perks,
+      ach: s.ach, life: s.life, flags: s.flags, revealed: s.revealed, feed: s.feed, chDone: s.chDone,
+      shares: s.shares, sharesTotal: s.sharesTotal, ipos: s.ipos, ipoTotal: s.ipoTotal, board: s.board,
+    }, over);
+  }
+
+  const sharesFor = (v) => Math.floor(Math.sqrt(v / 2e9));
+  const canIpo = (s) => s.exits >= 3 && valuation(s) >= IPO_VALUATION && !s.challenge;
+  const sharesGain = (s) => Math.max(0, sharesFor(s.ipoTotal + valuation(s)) - sharesFor(s.ipoTotal));
+  // Go public: resets companies, Founder Points and perks; Shares buy permanent Board Room seats.
+  function ipo(s) {
+    if (!canIpo(s)) return null;
+    const gain = sharesGain(s);
+    const keepPerks = {};
+    if (s.board.memory) for (const p of PERKS) if (s.perks[p.id] && p.cost <= 2) keepPerks[p.id] = true;
+    const n = createState(carry(s, {
+      fp: 0, fpTotal: 0, exits: 0, soldTotal: 0, perks: keepPerks,
+      shares: s.shares + gain, sharesTotal: s.sharesTotal + gain, ipos: s.ipos + 1, ipoTotal: s.ipoTotal + valuation(s),
+    }));
+    log(n, `IPO! Your company went public at $${fmt(valuation(s))}. +${gain} Shares.`, 'reveal');
+    n.revealed.board = true;
+    checkAchievements(n);
+    return n;
+  }
+  function buyBoard(s, id) {
+    const b = BOARD.find((x) => x.id === id);
+    if (!b || s.board[id] || s.shares < b.cost) return false;
+    s.shares -= b.cost;
+    s.board[id] = true;
+    startBonus(s, id);
+    touch(s);
+    log(s, `Board Room: ${b.name}.`, 'reveal');
+    return true;
+  }
+
   function exit(s) {
     if (valuation(s) < exitNeed(s)) return null;
     const gain = fpGain(s);
     const keep = UPGRADES.filter((u) => s.done[u.id] && ((s.perks.playbook && u.cat === 'tools') || (s.perks.veteran && u.cat === 'process'))).map((u) => u.id);
     const flags = { speedrun: s.flags.speedrun || s.t <= 1200, duck: s.flags.duck };
-    const n = createState({
-      fp: s.fp + gain, fpTotal: s.fpTotal + gain, exits: s.exits + 1, soldTotal: s.soldTotal + valuation(s), perks: s.perks,
-      ach: s.ach, life: s.life, flags, revealed: s.revealed, feed: s.feed, keep, chDone: s.chDone,
-    });
+    const n = createState(carry(s, { fp: s.fp + gain, fpTotal: s.fpTotal + gain, exits: s.exits + 1, soldTotal: s.soldTotal + valuation(s), flags, keep }));
     log(n, `Sold the company for $${fmt(valuation(s))}. +${gain} Founder Points.`, 'reveal');
     n.revealed.founder = true;
     checkAchievements(n);
@@ -812,7 +877,9 @@
 
   // ---------- simulation step ----------
   let achTimer = 0;
-  function tick(s, dt, rng) {
+  // opts.offline: catch-up while the player was away; skips bugs, decisions, trending and random incidents.
+  function tick(s, dt, rng, opts) {
+    const away = !!(opts && opts.offline);
     const m = mods(s);
     s.t += dt;
     if (s.t - s.lastClick > 0.5) s.flow = Math.max(0, s.flow - m.flowDecay * dt);
@@ -838,13 +905,13 @@
     if (s.incident) {
       s.incident.t += dt;
       if (s.incident.t >= m.incDur) endIncident(s, false);
-    } else if (s.stats.ships > 5 && rng() < Math.max(0, debtPct(s) - 0.08) * 0.004 * dt * m.incident) {
+    } else if (!away && s.stats.ships > 5 && rng() < Math.max(0, debtPct(s) - 0.08) * 0.004 * dt * m.incident) {
       startIncident(s, 'Old bugs took the site down.');
     }
 
     // trending
     if (s.viral && s.t > s.viral.until) s.viral = null;
-    if (!s.viral && s.stats.ships >= 3 && s.nextViral && s.t >= s.nextViral) {
+    if (!away && !s.viral && s.stats.ships >= 3 && s.nextViral && s.t >= s.nextViral) {
       s.viral = { until: s.t + 12 };
       s.nextViral = s.t + (150 + rng() * 150) * m.viralEvery;
     }
@@ -853,14 +920,16 @@
     for (let i = s.bugs.length - 1; i >= 0; i--) {
       if (s.t - s.bugs[i].born > 15) { s.bugs.splice(i, 1); s.debt += Math.max(3, s.written * 0.002); s.stats.bugsEscaped++; }
     }
-    if (s.revealed.debt && s.bugs.length < 3 && s.t >= s.nextBug) {
+    if (away) s.bugs.length = 0;
+    if (!away && s.revealed.debt && s.bugs.length < 3 && s.t >= s.nextBug) {
       if (s.nextBug) { s.bugSeq++; s.bugs.push({ id: s.bugSeq, born: s.t, x: rng(), y: rng() }); }
       s.nextBug = s.t + (20 + rng() * 20) / (0.4 + debtPct(s) * 8);
     }
 
     // decisions
     if (s.decision && s.t > s.decision.until) { log(s, `You ignored: ${DECISIONS.find((x) => x.id === s.decision.id).title}`, 'info'); s.decision = null; }
-    if (!s.decision && s.stats.ships >= 8) {
+    if (away) s.decision = null;
+    if (!away && !s.decision && s.stats.ships >= 8) {
       if (!s.nextDecision) s.nextDecision = s.t + 60;
       else if (s.t >= s.nextDecision) {
         const pool = DECISIONS.filter((d) => !d.when || d.when(s));
@@ -870,15 +939,15 @@
     }
     s.temp = s.temp.filter((e) => e.until > s.t);
 
-    // goals
-    const g = GOALS[s.goal];
-    if (g) {
+    // goals: up to 3 are open at once and can be finished in any order
+    for (const g of openGoals(s)) {
       const [cur, target] = g.prog(s);
       if (cur >= target) {
         const r = g.reward(s);
         if (r.money) { s.money += r.money; s.stats.runMoney += r.money; }
         if (r.loc) s.loc += r.loc;
         if (r.rep) s.rep += r.rep;
+        s.goalsDone[g.i] = true;
         s.goal++;
         log(s, `Done: ${g.text}. Reward: ${goalRewardText(r)}.`, 'goal');
       }
@@ -919,9 +988,11 @@
     if (s.stats.ships >= 2) reveal(s, 'product', 'Your product can grow new features. Open features.ts.');
     if (s.written >= 60 && debtPct(s) >= 0.06) reveal(s, 'debt', 'Your code has bugs now. That is tech debt. See PROBLEMS.');
     if (s.revealed.ship && saturation(s) >= 0.4) reveal(s, 'markets', 'Your market is getting crowded. Open market.ts.');
+    if (marketFull(s) && s.fullHint !== s.market) { s.fullHint = s.market; log(s, `${MARKETS[s.market].name} is full. Save up for ${MARKETS[s.market + 1].name} in market.ts.`, 'reveal'); }
     if (valuation(s) >= exitNeed(s) * 0.3) reveal(s, 'exit', 'Buyers are interested in your company. Open exit.ts.');
     if (UPGRADES.some((u) => u.cat === 'automation' && s.done[u.id]) || m.autoShip || m.autoHire) reveal(s, 'workflows', 'Automation is online. Open .github/workflows.yml.');
     if (s.t >= 300) reveal(s, 'stats', null);
+    if (s.exits >= 3) reveal(s, 'ipo', 'Bankers are calling: an IPO is possible. Open ipo.ts.');
     for (const u of UPGRADES) upgradeVisible(s, u);
     achTimer += dt;
     if (achTimer >= 1) { achTimer = 0; checkAchievements(s); }
@@ -930,7 +1001,8 @@
   function goalRewardText(r) {
     return [r.money ? `+$${fmt(r.money)}` : '', r.loc ? `+${fmt(r.loc)} LoC` : '', r.rep ? `+${fmt(r.rep)} Rep` : ''].filter(Boolean).join(', ');
   }
-  const goalReward = (s) => (GOALS[s.goal] ? goalRewardText(GOALS[s.goal].reward(s)) : '');
+  const openGoals = (s) => GOALS.filter((g) => !s.goalsDone[g.i]).slice(0, 3);
+  const goalReward = (s, g) => (g ? goalRewardText(g.reward(s)) : '');
 
   function fmt(n) {
     if (!isFinite(n)) return '∞';
@@ -948,13 +1020,13 @@
   }
 
   const api = {
-    ENGINEERS, SUPPORT, ROLES, OFFICES, MARKETS, UPGRADES, FEATURES, PERKS, ACHIEVEMENTS, GOALS, DECISIONS, CHALLENGES, MIN_SHIP, EXIT_VALUATION,
+    ENGINEERS, SUPPORT, ROLES, OFFICES, MARKETS, UPGRADES, FEATURES, PERKS, ACHIEVEMENTS, GOALS, DECISIONS, CHALLENGES, BOARD, MIN_SHIP, EXIT_VALUATION, IPO_VALUATION,
     createState, tick, click, ship, canShip, hotfix, claimViral, hire, bulk, promote, promoteCost, nextLevel, letGo, moveOffice, buyMarket,
     upgradeVisible, canAfford, buyUpgrade, featureState, featureCost, buyFeature, buyPerk,
-    deliver, contractOk, setRefactor, exit, checkAchievements, bestEngineer, touch, squash, decide, startChallenge, goalReward, tempMult,
+    deliver, contractOk, setRefactor, exit, checkAchievements, bestEngineer, touch, squash, decide, startChallenge, ipo, canIpo, sharesGain, buyBoard, goalReward, openGoals, tempMult,
     mods, rates, mrr, baseMrr, saturation, shipGain, shipRep, launchPay, debtPct, quality, clickValue, flowMult, seats, headcount,
     exitNeed, staffCost, roleUnlocked, staffBug, teamBug, valuation, fpGain, incidentChance, versionStr, cap, deployTime,
-    officeCost, marketCost, isSupport, fmt,
+    officeCost, marketCost, marketFull, isSupport, fmt,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.GitRich = api;
