@@ -114,6 +114,7 @@ const FILES = [
   { id: 'ipo', folder: 'founder', name: 'ipo.ts', show: () => S.revealed.ipo || S.ipos > 0, badge: () => (G.canIpo(S) ? ['$', 'warn'] : G.BOARD.some((b) => !S.board[b.id] && S.shares >= b.cost) ? ['•', ''] : null) },
   { id: 'challenges', folder: 'founder', name: 'challenges.ts', show: () => S.exits >= 1 || !!S.challenge, badge: () => (S.challenge ? ['⚑', 'warn'] : null) },
   { id: 'workflows', folder: '.github', name: 'workflows.yml', ico: 'YML', show: () => S.revealed.workflows, badge: () => { const n = activeBots().length; return n ? [n, 'dim'] : null; } },
+  { id: 'welcome', folder: '', name: 'README.md', ico: 'MD', md: true, show: () => true, badge: () => null },
   { id: 'todo', folder: '', name: 'TODO.md', ico: 'MD', md: true, show: () => true, badge: () => [`${S.goal}/${G.GOALS.length}`, 'dim'] },
   { id: 'achievements', folder: '', name: 'ACHIEVEMENTS.md', ico: 'MD', md: true, show: () => Object.keys(S.ach).length >= 3, badge: () => [`${Object.keys(S.ach).length}/${G.ACHIEVEMENTS.length}`, 'dim'] },
   { id: 'stats', folder: '', name: 'stats.md', ico: 'MD', md: true, show: () => S.revealed.stats, badge: () => null },
@@ -335,11 +336,33 @@ interface View {
 }
 const VIEWS: Record<string, View> = {
   welcome: {
-    key: () => 'w',
-    html: () => `<div class="welcome"><div class="cm-line">// README.md</div><h2>git <span>rich</span></h2>
+    key: () => 'w|' + visibleFiles().map((f) => f.id).join(','),
+    html: () => {
+      const guide: [string, string, string][] = [
+        ['clients', 'clients.ts', 'One-time jobs from clients. Fast cash for your unshipped code.'],
+        ['team', 'team.ts', 'Hire engineers and support roles, move offices, promote, and hire rare talents.'],
+        ['upgrades', 'upgrades.ts', 'One-time purchases that change a rule. New ones appear as you grow.'],
+        ['features', 'features.ts', 'Grow your product. Purple boxes are strategy choices: pick one per company.'],
+        ['market', 'market.ts', 'Markets cap your income. When one is full, save up for the next.'],
+        ['exit', 'exit.ts', 'Sell the company for Founder Points and start over stronger.'],
+        ['perks', 'perks.ts', 'Spend Founder Points on permanent perks.'],
+        ['challenges', 'challenges.ts', 'Companies with a hard rule and a permanent reward.'],
+        ['ipo', 'ipo.ts', 'Go public: a bigger reset that gives Shares for the Board Room.'],
+        ['workflows', 'workflows.yml', 'Switch your automation bots on and off.'],
+        ['todo', 'TODO.md', 'Your current goals. Each one pays a reward.'],
+        ['stats', 'stats.md', 'Where your code and money come from.'],
+        ['settings', 'settings.json', 'Number format, theme, and save export/import.'],
+      ];
+      const shown = guide.filter(([id]) => visibleFiles().some((f) => f.id === id));
+      return `<div class="welcome"><div class="cm-line"># README.md</div><h2>git <span>rich</span></h2>
       <p>You have an idea, a laptop and a garage. Turn it into a software company.</p>
-      <ol><li>Click <b>app.ts</b> on the left, or just type on your keyboard, to write code.</li><li>New files appear in the explorer as your company grows. A green <b>U</b> means you have not opened it yet.</li>
-      <li>The <b>▶ Ship</b> button at the top turns code into income. Watch <b>Problems</b> below for tech debt.</li></ol></div>`,
+      <ol><li>Click <b>app.ts</b> or just type on your keyboard to write code.</li>
+      <li>The <b>▶ Ship</b> button at the top turns your code into income and Reputation.</li>
+      <li>Fast, sloppy code piles up tech debt. Watch <b>Problems</b> at the bottom, and squash the 🐛 that crawl over your code.</li>
+      <li>New files appear in the explorer as your company grows. A green <b>U</b> means you have not opened it yet.</li></ol>
+      ${shown.length ? `<div class="section-t"><span>Your files</span></div><div class="roles">${shown.map(([id, name, desc]) => `<button class="wfrow" data-act="open" data-arg="${id}" style="all:unset;box-sizing:border-box;cursor:pointer;display:grid;grid-template-columns:9rem minmax(0,1fr);gap:12px;padding:9px 12px;border-top:1px solid var(--line)"><b class="mono">${name}</b><span class="note">${desc}</span></button>`).join('')}</div>` : ''}
+      <p class="cm-line">// your game saves in this browser automatically</p></div>`;
+    },
   },
   team: {
     key: () => ['t', S.talents.map((t) => t.id).join('.'), S.talentPool.map((c) => `${c.id}${S.money >= G.talentCost(S, c)}`).join('.'), S.office, G.headcount(S), UI.buyAmt, S.autoHire, G.ROLES.map((d) => d.id + S.staff[d.id] + G.roleUnlocked(S, d) + (S.money >= G.promoteCost(S, d.id)) + (G.bulk(S, d.id, UI.buyAmt).n > 0 && G.bulk(S, d.id, UI.buyAmt).total <= S.money)).join(''), S.money >= G.officeCost(S) && S.rep >= (G.OFFICES[S.office + 1] || { rep: 0 }).rep].join('|'),
@@ -549,6 +572,7 @@ const VIEWS: Record<string, View> = {
 function renderView() {
   if (UI.file && !visibleFiles().some((f) => f.id === UI.file)) UI.file = null;
   const id = UI.file || 'welcome';
+  if (id === 'welcome') UI.opened.welcome = true;
   const v = VIEWS[id];
   const f = FILES.find((x) => x.id === id);
   region('view-tabs', 'tab' + id, () => `<div class="tab active">${f ? `<span class="crumb">${f.folder ? f.folder + ' /' : ''}</span> ${f.name}` : 'Welcome'}</div>`);
@@ -630,7 +654,7 @@ function frame(now: number) {
   // the first incident teaches where tech debt lives
   if (S.stats.incidents > 0 && !UI.debtTip) { UI.debtTip = true; UI.ptab = 'problems'; toast('Tip: incidents come from tech debt. Use the refactoring slider in PROBLEMS to pay it down.', 'reveal'); }
   // open the first file automatically so a new player is never staring at an empty pane
-  if (!UI.file) { const first = visibleFiles().find((f) => !f.md); if (first && Object.keys(UI.opened).length === 0) { UI.file = first.id; UI.opened[first.id] = true; } }
+  if (!UI.file) { const first = visibleFiles().find((f) => !f.md); if (first && Object.keys(UI.opened).every((k) => k === 'welcome')) { UI.file = first.id; UI.opened[first.id] = true; } }
   render();
   if (now > saveAt) { save(); saveAt = now + 5000; }
   requestAnimationFrame(frame);
